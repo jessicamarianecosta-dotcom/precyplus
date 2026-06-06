@@ -85,25 +85,47 @@ export default function Sidebar() {
   const [userEmail, setUserEmail] =
     useState('');
 
+  const [loadingUser, setLoadingUser] =
+    useState(true);
+
   useEffect(() => {
 
-    supabase.auth
-      .getUser()
-      .then(({ data }) => {
+    async function loadUser() {
 
-        setUserEmail(
-          data.user?.email || ''
-        );
-      });
+      const {
+        data,
+      } = await supabase.auth.getUser();
+
+      const email =
+        data.user?.email || '';
+
+      console.log(
+        'EMAIL LOGADO:',
+        email
+      );
+
+      setUserEmail(email);
+
+      setLoadingUser(false);
+    }
+
+    loadUser();
 
   }, []);
 
   // 🔥 SOMENTE SEU EMAIL É PRO
   const isPro =
-    userEmail ===
+    userEmail.trim().toLowerCase() ===
     'jessicamarianecosta@gmail.com';
 
+  console.log('IS PRO:', isPro);
+
   function handleProClick() {
+
+    // SE FOR PRO → ENTRA
+    if (isPro) return;
+
+    // BASIC → CHECKOUT
     router.push('/assinatura');
   }
 
@@ -148,7 +170,21 @@ export default function Sidebar() {
             // 🔥 PRO
             if (item.pro) {
 
-              // USUÁRIO PRO
+              // ENQUANTO CARREGA USUÁRIO
+              if (loadingUser) {
+
+                return (
+                  <div
+                    key={item.label}
+                    className="
+                      h-14 rounded-2xl
+                      bg-gray-100 animate-pulse
+                    "
+                  />
+                );
+              }
+
+              // 🔥 USER PRO
               if (isPro) {
 
                 return (
@@ -198,7 +234,7 @@ export default function Sidebar() {
                 );
               }
 
-              // USUÁRIO BASIC
+              // 🔒 USER BASIC
               return (
                 <button
                   key={item.label}
