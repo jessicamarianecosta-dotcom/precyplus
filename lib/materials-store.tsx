@@ -4,51 +4,46 @@ import {
   createContext,
   useContext,
   useState,
-  useCallback,
-  ReactNode,
   useEffect,
+  ReactNode,
+  useCallback,
 } from 'react';
 
-import type { Material, StockMovement } from '@/types';
+import {
+  createClient,
+} from '@/lib/supabase/client';
 
-// STORAGE KEYS
-const MATERIALS_KEY = 'precy_materials';
-const MOVEMENTS_KEY = 'precy_movements';
-
-// DADOS INICIAIS (só primeira vez)
-const INITIAL_MATERIALS: Material[] = [
-  {
-    id: '1',
-    user_id: 'u1',
-    name: 'Papel Sulfite A4',
-    category: 'Papelaria',
-    purchased_qty: 500,
-    unit: 'folha',
-    paid_value: 20,
-    available_qty: 400,
-    min_stock: 100,
-    unit_cost: 0.04,
-    created_at: '',
-  },
-];
+import type {
+  Material,
+  StockMovement,
+} from '@/types';
 
 interface MaterialsContextType {
+
   materials: Material[];
+
   movements: StockMovement[];
 
+  loading: boolean;
+
   addMaterial: (
-    m: Omit<
+    data: Omit<
       Material,
-      'id' | 'user_id' | 'created_at' | 'unit_cost'
+      'id' |
+      'user_id' |
+      'created_at' |
+      'unit_cost'
     >
-  ) => void;
+  ) => Promise<void>;
 
   updateMaterial: (
     id: string,
-    m: Partial<Material>
-  ) => void;
+    data: Partial<Material>
+  ) => Promise<void>;
 
-  deleteMaterial: (id: string) => void;
+  deleteMaterial: (
+    id: string
+  ) => Promise<void>;
 
   decreaseStock: (
     entries: {
@@ -56,22 +51,26 @@ interface MaterialsContextType {
       quantity: number;
       reason: string;
     }[]
-  ) => string[];
+  ) => Promise<string[]>;
 
   increaseStock: (
     material_id: string,
     quantity: number,
     reason: string
-  ) => void;
+  ) => Promise<void>;
 
   adjustStock: (
     material_id: string,
     delta: number
-  ) => void;
+  ) => Promise<void>;
+
+  reloadMaterials: () => Promise<void>;
 }
 
 const MaterialsContext =
-  createContext<MaterialsContextType | null>(null);
+  createContext<MaterialsContextType | null>(
+    null
+  );
 
 export function MaterialsProvider({
   children,
@@ -79,223 +78,405 @@ export function MaterialsProvider({
   children: ReactNode;
 }) {
 
-  // LOAD STORAGE
-  const [materials, setMaterials] = useState<Material[]>(() => {
-    if (typeof window === 'undefined')
-      return INITIAL_MATERIALS;
+  const supabase =
+    createClient();
 
-    const saved = localStorage.getItem(MATERIALS_KEY);
-
-    return saved
-      ? JSON.parse(saved)
-      : INITIAL_MATERIALS;
-  });
+  const [materials, setMaterials] =
+    useState<Material[]>([]);
 
   const [movements, setMovements] =
-    useState<StockMovement[]>(() => {
-      if (typeof window === 'undefined')
-        return [];
+    useState<StockMovement[]>([]);
 
-      const saved =
-        localStorage.getItem(MOVEMENTS_KEY);
-
-      return saved ? JSON.parse(saved) : [];
-    });
-
-  // SAVE STORAGE
-  useEffect(() => {
-    localStorage.setItem(
-      MATERIALS_KEY,
-      JSON.stringify(materials)
-    );
-  }, [materials]);
+  const [loading, setLoading] =
+    useState(true);
 
   useEffect(() => {
-    localStorage.setItem(
-      MOVEMENTS_KEY,
-      JSON.stringify(movements)
-    );
-  }, [movements]);
+    reloadMaterials();
+    loadMovements();
+  }, []);
 
-  const calcUnitCost = (
+  async function reloadMaterials() {
+
+    const {
+      data,
+    } = await supabase
+      .from('materials')
+      .select('*')
+      .order(
+        'created_at',
+        {
+          ascending: false,
+        }
+      );
+
+    setMaterials(
+      data || []
+    );
+
+    setLoading(false);
+  }
+
+  async function loadMovements() {
+
+    const {
+      data,
+    } = await supabase
+      .from('stock_movements')
+      .select('*')
+      .order(
+        'created_at',
+        {
+          ascending: false,
+        }
+      );
+
+    setMovements(
+      data || []
+    );
+  }
+
+  function calcUnitCost(
     paid: number,
     qty: number
-  ) => (qty > 0 ? paid / qty : 0);
+  ) {
+
+    return qty > 0
+      ? paid / qty
+      : 0;
+  }
+
+  async function addMovement(
+    material: Material,
+    type:
+      | 'entry'
+      | 'exit'
+      | 'adjust',
+    quantity: number,
+    reason: string
+  ) {
+
+    await supabase
+      .from(
+        'stock_movements'
+      )
+      .insert({
+
+        material_id:
+          material.id,
+
+        material_name:
+          material.name,
+
+        quantity,
+
+        type,
+
+        reason,
+      });
+
+    loadMovements();
+  }
 
   // ADD
-  const addMaterial = useCallback(
-    (
-      data: Omit<
-        Material,
-        'id' | 'user_id' | 'created_at' | 'unit_cost'
-      >
-    ) => {
-      const id = Date.now().toString();
+  const addMaterial =
+    useCallback(
+      async (
+        data: Omit<
+          Material,
+          'id' |
+          'user_id' |
+          'created_at' |
+          'unit_cost'
+        >
+      ) => {
 
-      const unit_cost = calcUnitCost(
-        data.paid_value,
-        data.purchased_qty
-      );
+        const {
+          data: auth,
+        } =
+          await supabase.auth.getUser();
 
-      setMaterials(prev => [
-        {
-          id,
-          user_id: 'u1',
-          ...data,
-          unit_cost,
-          created_at: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
-    },
-    []
-  );
-
-  // UPDATE
-  const updateMaterial = useCallback(
-    (id: string, data: Partial<Material>) => {
-      setMaterials(prev =>
-        prev.map(m => {
-          if (m.id !== id) return m;
-
-          const updated = {
-            ...m,
-            ...data,
-          };
-
-          if (
-            data.paid_value !== undefined ||
-            data.purchased_qty !== undefined
-          ) {
-            updated.unit_cost = calcUnitCost(
-              updated.paid_value,
-              updated.purchased_qty
-            );
-          }
-
-          return updated;
-        })
-      );
-    },
-    []
-  );
-
-  // DELETE
-  const deleteMaterial = useCallback(
-    (id: string) => {
-      setMaterials(prev =>
-        prev.filter(m => m.id !== id)
-      );
-    },
-    []
-  );
-
-  // DECREASE
-  const decreaseStock = useCallback(
-    (
-      entries: {
-        material_id: string;
-        quantity: number;
-        reason: string;
-      }[]
-    ) => {
-      const warnings: string[] = [];
-
-      setMaterials(prev =>
-        prev.map(m => {
-          const entry = entries.find(
-            e => e.material_id === m.id
+        const unit_cost =
+          calcUnitCost(
+            data.paid_value,
+            data.purchased_qty
           );
 
-          if (!entry) return m;
+        await supabase
+          .from('materials')
+          .insert({
 
-          const newQty = Math.max(
-            0,
-            m.available_qty - entry.quantity
+            ...data,
+
+            user_id:
+              auth.user?.id,
+
+            unit_cost,
+
+            available_qty:
+              data.available_qty ??
+              data.purchased_qty,
+          });
+
+        await reloadMaterials();
+      },
+      []
+    );
+
+  // UPDATE
+  const updateMaterial =
+    useCallback(
+      async (
+        id: string,
+        data: Partial<Material>
+      ) => {
+
+        const updated = {
+          ...data,
+        };
+
+        if (
+          data.paid_value !==
+            undefined ||
+          data.purchased_qty !==
+            undefined
+        ) {
+
+          updated.unit_cost =
+            calcUnitCost(
+              Number(
+                data.paid_value
+              ),
+              Number(
+                data.purchased_qty
+              )
+            );
+        }
+
+        await supabase
+          .from('materials')
+          .update(updated)
+          .eq('id', id);
+
+        await reloadMaterials();
+      },
+      []
+    );
+
+  // DELETE
+  const deleteMaterial =
+    useCallback(
+      async (id: string) => {
+
+        await supabase
+          .from('materials')
+          .delete()
+          .eq('id', id);
+
+        await reloadMaterials();
+      },
+      []
+    );
+
+  // DECREASE
+  const decreaseStock =
+    useCallback(
+      async (
+        entries: {
+          material_id: string;
+          quantity: number;
+          reason: string;
+        }[]
+      ) => {
+
+        const warnings: string[] =
+          [];
+
+        for (const entry of entries) {
+
+          const material =
+            materials.find(
+              m =>
+                m.id ===
+                entry.material_id
+            );
+
+          if (!material)
+            continue;
+
+          const newQty =
+            Math.max(
+              0,
+              material.available_qty -
+                entry.quantity
+            );
+
+          await supabase
+            .from('materials')
+            .update({
+              available_qty:
+                newQty,
+            })
+            .eq(
+              'id',
+              material.id
+            );
+
+          await addMovement(
+            material,
+            'exit',
+            entry.quantity,
+            entry.reason
           );
 
           if (newQty <= 0) {
+
             warnings.push(
-              `${m.name} zerou o estoque!`
+              `${material.name} zerou o estoque!`
             );
           }
+        }
 
-          return {
-            ...m,
-            available_qty: newQty,
-          };
-        })
-      );
+        await reloadMaterials();
 
-      return warnings;
-    },
-    []
-  );
+        return warnings;
+      },
+      [materials]
+    );
 
   // INCREASE
-  const increaseStock = useCallback(
-    (
-      material_id: string,
-      quantity: number,
-      reason: string
-    ) => {
-      setMaterials(prev =>
-        prev.map(m =>
-          m.id === material_id
-            ? {
-                ...m,
-                available_qty:
-                  m.available_qty + quantity,
-              }
-            : m
-        )
-      );
-    },
-    []
-  );
+  const increaseStock =
+    useCallback(
+      async (
+        material_id: string,
+        quantity: number,
+        reason: string
+      ) => {
+
+        const material =
+          materials.find(
+            m =>
+              m.id ===
+              material_id
+          );
+
+        if (!material)
+          return;
+
+        await supabase
+          .from('materials')
+          .update({
+
+            available_qty:
+              material.available_qty +
+              quantity,
+          })
+          .eq(
+            'id',
+            material_id
+          );
+
+        await addMovement(
+          material,
+          'entry',
+          quantity,
+          reason
+        );
+
+        await reloadMaterials();
+      },
+      [materials]
+    );
 
   // ADJUST
-  const adjustStock = useCallback(
-    (material_id: string, delta: number) => {
-      setMaterials(prev =>
-        prev.map(m =>
-          m.id === material_id
-            ? {
-                ...m,
-                available_qty: Math.max(
-                  0,
-                  m.available_qty + delta
-                ),
-              }
-            : m
-        )
-      );
-    },
-    []
-  );
+  const adjustStock =
+    useCallback(
+      async (
+        material_id: string,
+        delta: number
+      ) => {
+
+        const material =
+          materials.find(
+            m =>
+              m.id ===
+              material_id
+          );
+
+        if (!material)
+          return;
+
+        const newQty =
+          Math.max(
+            0,
+            material.available_qty +
+              delta
+          );
+
+        await supabase
+          .from('materials')
+          .update({
+            available_qty:
+              newQty,
+          })
+          .eq(
+            'id',
+            material_id
+          );
+
+        await addMovement(
+          material,
+          'adjust',
+          Math.abs(delta),
+          'Ajuste manual'
+        );
+
+        await reloadMaterials();
+      },
+      [materials]
+    );
 
   return (
+
     <MaterialsContext.Provider
       value={{
+
         materials,
+
         movements,
+
+        loading,
+
         addMaterial,
+
         updateMaterial,
+
         deleteMaterial,
+
         decreaseStock,
+
         increaseStock,
+
         adjustStock,
+
+        reloadMaterials,
       }}
     >
+
       {children}
+
     </MaterialsContext.Provider>
   );
 }
 
 export function useMaterials() {
-  const ctx = useContext(MaterialsContext);
+
+  const ctx =
+    useContext(
+      MaterialsContext
+    );
 
   if (!ctx) {
+
     throw new Error(
       'useMaterials must be used inside MaterialsProvider'
     );

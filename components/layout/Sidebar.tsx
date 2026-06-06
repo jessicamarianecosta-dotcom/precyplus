@@ -15,7 +15,7 @@ import {
   Package,
   Calculator,
   TrendingUp,
- Users,
+  Users,
   FileText,
   Settings,
   LogOut,
@@ -133,10 +133,22 @@ export default function Sidebar() {
 
   async function handleLogout() {
 
-    await supabase.auth.signOut();
+    try {
 
-    window.location.href =
-      '/login';
+      await supabase.auth.signOut();
+
+      localStorage.clear();
+
+      sessionStorage.clear();
+
+      router.replace('/login');
+
+      router.refresh();
+
+    } catch (err) {
+
+      console.error(err);
+    }
   }
 
   return (
