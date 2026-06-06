@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
 
 import {
   LayoutDashboard,
@@ -16,8 +15,6 @@ import {
   LogOut,
   Receipt,
 } from 'lucide-react';
-
-import { createClient } from '@/lib/supabase/client';
 
 type MenuItem = {
   label: string;
@@ -53,7 +50,7 @@ const menu: MenuItem[] = [
     icon: Receipt,
   },
 
-  // PRO
+  // 🔥 PRO
   {
     label: 'Financeiro',
     href: '/dashboard/financeiro',
@@ -80,52 +77,13 @@ export default function Sidebar() {
 
   const router = useRouter();
 
-  const supabase = createClient();
-
-  const [userEmail, setUserEmail] =
-    useState('');
-
-  const [loadingUser, setLoadingUser] =
-    useState(true);
-
-  useEffect(() => {
-
-    async function loadUser() {
-
-      const {
-        data,
-      } = await supabase.auth.getUser();
-
-      const email =
-        data.user?.email || '';
-
-      console.log(
-        'EMAIL LOGADO:',
-        email
-      );
-
-      setUserEmail(email);
-
-      setLoadingUser(false);
-    }
-
-    loadUser();
-
-  }, []);
-
-  // 🔥 SOMENTE SEU EMAIL É PRO
-  const isPro =
-    userEmail.trim().toLowerCase() ===
-    'jessicamarianecosta@gmail.com';
-
-  console.log('IS PRO:', isPro);
+  // 🔥 LIBERADO TEMPORARIAMENTE
+  const isPro = true;
 
   function handleProClick() {
 
-    // SE FOR PRO → ENTRA
     if (isPro) return;
 
-    // BASIC → CHECKOUT
     router.push('/assinatura');
   }
 
@@ -170,21 +128,7 @@ export default function Sidebar() {
             // 🔥 PRO
             if (item.pro) {
 
-              // ENQUANTO CARREGA USUÁRIO
-              if (loadingUser) {
-
-                return (
-                  <div
-                    key={item.label}
-                    className="
-                      h-14 rounded-2xl
-                      bg-gray-100 animate-pulse
-                    "
-                  />
-                );
-              }
-
-              // 🔥 USER PRO
+              // 🔓 PRO LIBERADO
               if (isPro) {
 
                 return (
@@ -234,7 +178,7 @@ export default function Sidebar() {
                 );
               }
 
-              // 🔒 USER BASIC
+              // 🔒 BASIC
               return (
                 <button
                   key={item.label}
