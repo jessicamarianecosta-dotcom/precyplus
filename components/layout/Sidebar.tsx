@@ -15,7 +15,7 @@ import {
   Package,
   Calculator,
   TrendingUp,
-  Users,
+ Users,
   FileText,
   Settings,
   LogOut,
@@ -27,6 +27,10 @@ import {
 import {
   useTheme,
 } from '@/lib/theme-provider';
+
+import {
+  createClient,
+} from '@/lib/supabase/client';
 
 type MenuItem = {
   label: string;
@@ -99,6 +103,9 @@ export default function Sidebar() {
   const theme =
     useTheme();
 
+  const supabase =
+    createClient();
+
   const [isOpen, setIsOpen] =
     useState(false);
 
@@ -122,6 +129,14 @@ export default function Sidebar() {
     router.push(
       '/assinatura'
     );
+  }
+
+  async function handleLogout() {
+
+    await supabase.auth.signOut();
+
+    window.location.href =
+      '/login';
   }
 
   return (
@@ -414,6 +429,7 @@ export default function Sidebar() {
           </Link>
 
           <button
+            onClick={handleLogout}
             className="
               h-14
               px-4
