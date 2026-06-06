@@ -1,7 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+
+import {
+  usePathname,
+  useRouter,
+} from 'next/navigation';
+
+import {
+  useEffect,
+  useState,
+} from 'react';
 
 import {
   LayoutDashboard,
@@ -16,6 +25,8 @@ import {
   Receipt,
 } from 'lucide-react';
 
+import { createClient } from '@/lib/supabase/client';
+
 type MenuItem = {
   label: string;
   href: string;
@@ -29,21 +40,25 @@ const menu: MenuItem[] = [
     href: '/dashboard',
     icon: LayoutDashboard,
   },
+
   {
     label: 'Materiais',
     href: '/dashboard/materiais',
     icon: Boxes,
   },
+
   {
     label: 'Produtos',
     href: '/dashboard/produtos',
     icon: Package,
   },
+
   {
     label: 'Precificação',
     href: '/dashboard/precificacao',
     icon: Calculator,
   },
+
   {
     label: 'Custos Fixos',
     href: '/dashboard/custos-fixos',
@@ -57,12 +72,14 @@ const menu: MenuItem[] = [
     icon: TrendingUp,
     pro: true,
   },
+
   {
     label: 'Clientes',
     href: '/dashboard/clientes',
     icon: Users,
     pro: true,
   },
+
   {
     label: 'Orçamentos',
     href: '/dashboard/orcamentos',
@@ -73,15 +90,56 @@ const menu: MenuItem[] = [
 
 export default function Sidebar() {
 
-  const pathname = usePathname();
+  const pathname =
+    usePathname();
 
-  const router = useRouter();
+  const router =
+    useRouter();
 
-  // 🔥 LIBERADO TEMPORARIAMENTE
-  const isPro = true;
+  const supabase =
+    createClient();
+
+  const [isPro, setIsPro] =
+    useState(false);
+
+  useEffect(() => {
+
+    async function loadPlan() {
+
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const {
+        data: profile,
+      } = await supabase
+        .from('profiles')
+        .select('plan, is_pro')
+        .eq('id', user.id)
+        .single();
+
+      console.log(profile);
+
+      if (
+        profile?.plan === 'pro' ||
+        profile?.is_pro === true
+      ) {
+        setIsPro(true);
+      }
+    }
+
+    loadPlan();
+
+  }, []);
 
   function handleProClick() {
-    router.push('/assinatura');
+
+    router.push(
+      '/assinatura'
+    );
   }
 
   return (
@@ -117,18 +175,24 @@ export default function Sidebar() {
 
           {menu.map((item) => {
 
-            const Icon = item.icon;
+            const Icon =
+              item.icon;
 
             const active =
               pathname === item.href;
 
-            // 🔒 USUÁRIO BASIC
-            if (item.pro && !isPro) {
+            // 🔒 BASIC
+            if (
+              item.pro &&
+              !isPro
+            ) {
 
               return (
                 <button
                   key={item.label}
-                  onClick={handleProClick}
+                  onClick={
+                    handleProClick
+                  }
                   className="
                     w-full flex items-center justify-between
                     h-14 px-4 rounded-2xl
@@ -157,57 +221,7 @@ export default function Sidebar() {
               );
             }
 
-            // 🔓 USUÁRIO PRO
-            if (item.pro && isPro) {
-
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`
-                    flex items-center justify-between
-                    h-14 px-4 rounded-2xl
-                    transition-all
-                    ${
-                      active
-                        ? 'bg-pink-50'
-                        : 'hover:bg-gray-50'
-                    }
-                  `}
-                >
-
-                  <div className="flex items-center gap-4">
-
-                    <Icon
-                      size={21}
-                      className={
-                        active
-                          ? 'text-pink-500'
-                          : 'text-gray-400'
-                      }
-                    />
-
-                    <span
-                      className={`text-[16px] font-bold ${
-                        active
-                          ? 'text-pink-500'
-                          : 'text-[#364152]'
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-
-                  </div>
-
-                  <div className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-black">
-                    PRO
-                  </div>
-
-                </Link>
-              );
-            }
-
-            // 🔹 NORMAL
+            // 🔓 NORMAL + PRO
             return (
               <Link
                 key={item.label}
@@ -246,6 +260,12 @@ export default function Sidebar() {
                   </span>
 
                 </div>
+
+                {item.pro && (
+                  <div className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-black">
+                    PRO
+                  </div>
+                )}
 
               </Link>
             );
