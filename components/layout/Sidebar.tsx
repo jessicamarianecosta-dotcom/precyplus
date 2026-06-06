@@ -102,7 +102,6 @@ export default function Sidebar() {
   const [isOpen, setIsOpen] =
     useState(false);
 
-  // 🔥 FORÇADO PRO
   const isPro = true;
 
   function handleProClick(
@@ -372,6 +371,7 @@ export default function Sidebar() {
             })}
 
           </nav>
+
         </div>
 
         {/* FOOTER */}
@@ -380,20 +380,31 @@ export default function Sidebar() {
           <Link
             href="/dashboard/configuracoes"
             onClick={() => setIsOpen(false)}
-            className="
+            className={`
               h-14
               px-4
               rounded-2xl
               flex
               items-center
               gap-4
-              text-white
               font-bold
-            "
-            style={{
-              background:
-                'var(--primary-color)',
-            }}
+              transition-all
+              ${
+                pathname ===
+                '/dashboard/configuracoes'
+                  ? 'text-white'
+                  : 'text-[#364152] hover:bg-pink-50'
+              }
+            `}
+            style={
+              pathname ===
+              '/dashboard/configuracoes'
+                ? {
+                    background:
+                      'linear-gradient(135deg, #FF4FA3, #FF8DC7)',
+                  }
+                : {}
+            }
           >
 
             <Settings size={20} />
