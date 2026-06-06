@@ -79,6 +79,8 @@ export interface Pricing {
   fixed_cost_share: number;
   packaging_cost: number;
   delivery_cost: number;
+  direct_cost?: number;
+  indirect_cost?: number;
   commission_pct: number;
   extra_taxes: number;
   profit_margin: number;
@@ -86,6 +88,8 @@ export interface Pricing {
   min_price: number;
   recommended_price: number;
   premium_price: number;
+  profit_estimated?: number;
+  materials?: ProductMaterial[];
   created_at: string;
 }
 
