@@ -7,6 +7,8 @@ import {
   useRouter,
 } from 'next/navigation';
 
+import { useState } from 'react';
+
 import {
   LayoutDashboard,
   Boxes,
@@ -18,6 +20,8 @@ import {
   Settings,
   LogOut,
   Receipt,
+  Menu,
+  X,
 } from 'lucide-react';
 
 type MenuItem = {
@@ -58,7 +62,6 @@ const menu: MenuItem[] = [
     icon: Receipt,
   },
 
-  // 🔥 PRO
   {
     label: 'Financeiro',
     href: '/dashboard/financeiro',
@@ -89,6 +92,9 @@ export default function Sidebar() {
   const router =
     useRouter();
 
+  const [isOpen, setIsOpen] =
+    useState(false);
+
   // 🔥 FORÇADO PRO
   const isPro = true;
 
@@ -96,17 +102,17 @@ export default function Sidebar() {
     item: MenuItem
   ) {
 
-    // 🔓 PRO LIBERADO
     if (isPro) {
 
       router.push(
         item.href
       );
 
+      setIsOpen(false);
+
       return;
     }
 
-    // 🔒 BASIC
     router.push(
       '/assinatura'
     );
@@ -114,243 +120,284 @@ export default function Sidebar() {
 
   return (
 
-    <aside
-      className="
-        w-[85px]
-        md:w-[315px]
-        min-h-screen
-        bg-white
-        border-r
-        border-[#F6DCE7]
-        flex
-        flex-col
-      "
-    >
+    <>
 
-      {/* HEADER */}
-      <div className="h-24 px-4 md:px-6 flex items-center justify-center md:justify-start border-b border-[#F6DCE7]">
+      {/* MOBILE BUTTON */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="
+          md:hidden
+          fixed
+          top-4
+          left-4
+          z-50
+          bg-white
+          border
+          border-pink-200
+          shadow-lg
+          rounded-xl
+          p-3
+        "
+      >
+        <Menu size={24} />
+      </button>
 
-        <div className="flex items-center gap-3">
+      {/* SIDEBAR */}
+      <aside
+        className={`
+          fixed md:relative
+          z-50
+          top-0 left-0
+          h-screen
+          bg-white
+          border-r border-[#F6DCE7]
+          flex flex-col
+          transition-all duration-300
 
-          <div className="w-11 h-11 rounded-full border-2 border-pink-300 flex items-center justify-center bg-white">
+          w-[280px] md:w-[315px]
 
-            <span className="text-sm font-black text-[#1A1F5E]">
-              P+
-            </span>
+          ${
+            isOpen
+              ? 'translate-x-0'
+              : '-translate-x-full md:translate-x-0'
+          }
+        `}
+      >
+
+        {/* HEADER */}
+        <div className="h-24 px-6 flex items-center justify-between border-b border-[#F6DCE7]">
+
+          <div className="flex items-center gap-3">
+
+            <div className="w-11 h-11 rounded-full border-2 border-pink-300 flex items-center justify-center bg-white">
+
+              <span className="text-sm font-black text-[#1A1F5E]">
+                P+
+              </span>
+
+            </div>
+
+            <h1 className="text-[22px] font-black text-[#1A1F5E]">
+
+              Precy
+
+              <span className="text-pink-500">
+                +
+              </span>
+
+            </h1>
 
           </div>
 
-          <h1 className="hidden md:block text-[22px] font-black text-[#1A1F5E]">
-
-            Precy
-
-            <span className="text-pink-500">
-              +
-            </span>
-
-          </h1>
+          {/* CLOSE BUTTON */}
+          <button
+            onClick={() => setIsOpen(false)}
+            className="md:hidden"
+          >
+            <X size={28} />
+          </button>
 
         </div>
-      </div>
 
-      {/* MENU */}
-      <div className="flex-1 px-2 md:px-5 py-7">
+        {/* MENU */}
+        <div className="flex-1 px-5 py-7 overflow-y-auto">
 
-        <nav className="space-y-2">
+          <nav className="space-y-2">
 
-          {menu.map((item) => {
+            {menu.map((item) => {
 
-            const Icon =
-              item.icon;
+              const Icon =
+                item.icon;
 
-            const active =
-              pathname === item.href;
+              const active =
+                pathname === item.href;
 
-            // 🔒 BASIC
-            if (
-              item.pro &&
-              !isPro
-            ) {
+              if (
+                item.pro &&
+                !isPro
+              ) {
+
+                return (
+
+                  <button
+                    key={item.label}
+                    onClick={() =>
+                      handleProClick(item)
+                    }
+                    className="
+                      w-full
+                      flex
+                      items-center
+                      justify-between
+                      h-14
+                      px-4
+                      rounded-2xl
+                      hover:bg-pink-50
+                      transition-all
+                    "
+                  >
+
+                    <div className="flex items-center gap-4">
+
+                      <Icon
+                        size={21}
+                        className="text-gray-400"
+                      />
+
+                      <span className="text-[16px] font-bold text-[#364152]">
+                        {item.label}
+                      </span>
+
+                    </div>
+
+                    <div className="px-2 py-1 rounded-lg bg-[#FFE7A3] text-[#B66A00] text-xs font-black">
+                      PRO
+                    </div>
+
+                  </button>
+                );
+              }
 
               return (
 
-                <button
+                <Link
                   key={item.label}
-                  onClick={() =>
-                    handleProClick(item)
-                  }
-                  className="
-                    w-full
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className={`
                     flex
                     items-center
-                    justify-center
-                    md:justify-between
+                    justify-between
                     h-14
-                    px-2
-                    md:px-4
+                    px-4
                     rounded-2xl
-                    hover:bg-pink-50
                     transition-all
-                  "
+                    ${
+                      active
+                        ? 'bg-pink-50'
+                        : 'hover:bg-gray-50'
+                    }
+                  `}
                 >
 
                   <div className="flex items-center gap-4">
 
                     <Icon
                       size={21}
-                      className="text-gray-400"
+                      className={
+                        active
+                          ? 'text-pink-500'
+                          : 'text-gray-400'
+                      }
                     />
 
-                    <span className="hidden md:block text-[16px] font-bold text-[#364152]">
+                    <span
+                      className={`
+                        text-[16px]
+                        font-bold
+                        ${
+                          active
+                            ? 'text-pink-500'
+                            : 'text-[#364152]'
+                        }
+                      `}
+                    >
                       {item.label}
                     </span>
 
                   </div>
 
-                  <div className="hidden md:block px-2 py-1 rounded-lg bg-[#FFE7A3] text-[#B66A00] text-xs font-black">
-                    PRO
-                  </div>
+                  {item.pro && (
 
-                </button>
+                    <div
+                      className="
+                        px-2
+                        py-1
+                        rounded-lg
+                        bg-emerald-100
+                        text-emerald-700
+                        text-xs
+                        font-black
+                      "
+                    >
+                      PRO
+                    </div>
+
+                  )}
+
+                </Link>
               );
-            }
+            })}
 
-            // 🔓 NORMAL + PRO
-            return (
+          </nav>
+        </div>
 
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`
-                  flex
-                  items-center
-                  justify-center
-                  md:justify-between
-                  h-14
-                  px-2
-                  md:px-4
-                  rounded-2xl
-                  transition-all
-                  ${
-                    active
-                      ? 'bg-pink-50'
-                      : 'hover:bg-gray-50'
-                  }
-                `}
-              >
+        {/* FOOTER */}
+        <div className="border-t border-[#F6DCE7] p-5 space-y-2">
 
-                <div className="flex items-center gap-4">
+          <Link
+            href="/dashboard/configuracoes"
+            onClick={() => setIsOpen(false)}
+            className="
+              h-14
+              px-4
+              rounded-2xl
+              flex
+              items-center
+              gap-4
+              bg-pink-500
+              text-white
+              font-bold
+            "
+          >
 
-                  <Icon
-                    size={21}
-                    className={
-                      active
-                        ? 'text-pink-500'
-                        : 'text-gray-400'
-                    }
-                  />
+            <Settings size={20} />
 
-                  <span
-                    className={`
-                      hidden
-                      md:block
-                      text-[16px]
-                      font-bold
-                      ${
-                        active
-                          ? 'text-pink-500'
-                          : 'text-[#364152]'
-                      }
-                    `}
-                  >
-                    {item.label}
-                  </span>
-
-                </div>
-
-                {item.pro && (
-
-                  <div
-                    className="
-                      hidden
-                      md:block
-                      px-2
-                      py-1
-                      rounded-lg
-                      bg-emerald-100
-                      text-emerald-700
-                      text-xs
-                      font-black
-                    "
-                  >
-                    PRO
-                  </div>
-
-                )}
-
-              </Link>
-            );
-          })}
-
-        </nav>
-      </div>
-
-      {/* FOOTER */}
-      <div className="border-t border-[#F6DCE7] p-2 md:p-5 space-y-2">
-
-        <Link
-          href="/dashboard/configuracoes"
-          className="
-            h-14
-            px-2
-            md:px-4
-            rounded-2xl
-            flex
-            items-center
-            justify-center
-            md:justify-start
-            gap-4
-            bg-pink-500
-            text-white
-            font-bold
-          "
-        >
-
-          <Settings size={20} />
-
-          <span className="hidden md:block">
             Configurações
-          </span>
 
-        </Link>
+          </Link>
 
-        <button
-          className="
-            h-14
-            px-2
-            md:px-4
-            rounded-2xl
-            flex
-            items-center
-            justify-center
-            md:justify-start
-            gap-4
-            text-gray-500
-            hover:bg-gray-50
-            font-bold
-            w-full
-          "
-        >
+          <button
+            className="
+              h-14
+              px-4
+              rounded-2xl
+              flex
+              items-center
+              gap-4
+              text-gray-500
+              hover:bg-gray-50
+              font-bold
+              w-full
+            "
+          >
 
-          <LogOut size={20} />
+            <LogOut size={20} />
 
-          <span className="hidden md:block">
             Sair
-          </span>
 
-        </button>
+          </button>
 
-      </div>
-    </aside>
+        </div>
+
+      </aside>
+
+      {/* OVERLAY */}
+      {isOpen && (
+
+        <div
+          onClick={() => setIsOpen(false)}
+          className="
+            fixed
+            inset-0
+            bg-black/40
+            z-40
+            md:hidden
+          "
+        />
+
+      )}
+
+    </>
   );
 }
