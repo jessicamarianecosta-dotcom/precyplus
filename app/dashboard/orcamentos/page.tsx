@@ -8,9 +8,14 @@ import {
   Copy,
   Trash2,
   Search,
+  Pencil,
 } from 'lucide-react';
 
 import { toast } from 'sonner';
+
+import jsPDF from 'jspdf';
+
+import autoTable from 'jspdf-autotable';
 
 import {
   PageHeader,
@@ -28,14 +33,12 @@ import {
   formatDate,
 } from '@/lib/utils';
 
+import { createClient } from '@/lib/supabase/client';
+
 import type {
   Budget,
   BudgetItem,
 } from '@/types';
-
-// STORAGE
-const BUDGETS_KEY =
-  'precy_budgets';
 
 const STATUS_MAP = {
   draft: {
@@ -59,71 +62,30 @@ const STATUS_MAP = {
   },
 };
 
-const DEMO: Budget[] = [
-  {
-    id: '1',
-
-    user_id: 'u1',
-
-    client_name:
-      'Ana Paula Silva',
-
-    total: 165,
-
-    status: 'sent',
-
-    valid_until:
-      '2025-07-30',
-
-    notes:
-      'Kit presente personalizado',
-
-    items: [
-      {
-        description:
-          'Caderno A5',
-        quantity: 3,
-        unit_price: 33,
-        total: 99,
-      },
-    ],
-
-    created_at:
-      new Date().toISOString(),
-  },
-];
-
 export default function OrcamentosPage() {
 
-  // LOAD STORAGE
+  const supabase =
+    createClient();
+
   const [budgets, setBudgets] =
-    useState<Budget[]>(() => {
+    useState<Budget[]>([]);
 
-      if (typeof window === 'undefined')
-        return DEMO;
+  const [clients, setClients] =
+    useState<any[]>([]);
 
-      const saved =
-        localStorage.getItem(
-          BUDGETS_KEY
-        );
+  const [products, setProducts] =
+    useState<any[]>([]);
 
-      return saved
-        ? JSON.parse(saved)
-        : DEMO;
-    });
-
-  // SAVE STORAGE
-  useEffect(() => {
-    localStorage.setItem(
-      BUDGETS_KEY,
-      JSON.stringify(budgets)
-    );
-  }, [budgets]);
+  const [editingId, setEditingId] =
+    useState<string | null>(null);
 
   const [search, setSearch] =
     useState('');
 
   const [modalOpen, setModalOpen] =
+    useState(false);
+
+  const [loading, setLoading] =
     useState(false);
 
   const [form, setForm] =
@@ -143,13 +105,53 @@ export default function OrcamentosPage() {
       },
     ]);
 
-  const [loading, setLoading] =
-    useState(false);
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function loadData() {
+
+    const {
+      data: budgetsData,
+    } = await supabase
+      .from('budgets')
+      .select('*')
+      .order(
+        'created_at',
+        {
+          ascending: false,
+        }
+      );
+
+    const {
+      data: clientsData,
+    } = await supabase
+      .from('clients')
+      .select('*');
+
+    const {
+      data: productsData,
+    } = await supabase
+      .from('products')
+      .select('*');
+
+    setBudgets(
+      budgetsData || []
+    );
+
+    setClients(
+      clientsData || []
+    );
+
+    setProducts(
+      productsData || []
+    );
+  }
 
   const filtered = budgets.filter(
     b =>
       b.client_name
-        .toLowerCase()
+        ?.toLowerCase()
         .includes(
           search.toLowerCase()
         )
@@ -179,10 +181,10 @@ export default function OrcamentosPage() {
 
         updated.total =
           Number(
-            updated.unit_price
+            updated.quantity
           ) *
           Number(
-            updated.quantity
+            updated.unit_price
           );
 
         return updated;
@@ -190,47 +192,123 @@ export default function OrcamentosPage() {
     );
   }
 
+  function handleProductSelect(
+    idx: number,
+    productName: string
+  ) {
+
+    const product =
+      products.find(
+        p =>
+          p.name ===
+          productName
+      );
+
+    if (!product)
+      return;
+
+    setItems(prev =>
+      prev.map((item, i) => {
+
+        if (i !== idx)
+          return item;
+
+        return {
+          ...item,
+          description:
+            product.name,
+          unit_price:
+            Number(
+              product.sale_price
+            ),
+          total:
+            Number(
+              product.sale_price
+            ) *
+            Number(
+              item.quantity
+            ),
+        };
+      })
+    );
+  }
+
   async function handleSave() {
 
     if (!form.client_name) {
+
       toast.error(
         'Informe o cliente'
       );
+
       return;
     }
 
     setLoading(true);
 
-    await new Promise(r =>
-      setTimeout(r, 300)
-    );
+    if (editingId) {
 
-    setBudgets(prev => [
-      {
-        id: Date.now().toString(),
+      await supabase
+        .from('budgets')
+        .update({
 
-        user_id: 'u1',
+          client_name:
+            form.client_name,
 
-        ...form,
+          notes:
+            form.notes,
 
-        items,
+          valid_until:
+            form.valid_until,
 
-        total,
+          items,
 
-        status: 'draft',
+          total,
 
-        created_at:
-          new Date().toISOString(),
-      },
+        })
+        .eq(
+          'id',
+          editingId
+        );
 
-      ...prev,
-    ]);
+      toast.success(
+        'Orçamento atualizado!'
+      );
 
-    toast.success(
-      'Orçamento criado!'
-    );
+    } else {
 
-    setModalOpen(false);
+      await supabase
+        .from('budgets')
+        .insert({
+
+          client_name:
+            form.client_name,
+
+          notes:
+            form.notes,
+
+          valid_until:
+            form.valid_until,
+
+          items,
+
+          total,
+
+          status: 'draft',
+        });
+
+      toast.success(
+        'Orçamento criado!'
+      );
+    }
+
+    setEditingId(null);
+
+    setForm({
+      client_name: '',
+      notes: '',
+      valid_until: '',
+    });
 
     setItems([
       {
@@ -241,65 +319,40 @@ export default function OrcamentosPage() {
       },
     ]);
 
-    setForm({
-      client_name: '',
-      notes: '',
-      valid_until: '',
-    });
+    setModalOpen(false);
+
+    await loadData();
 
     setLoading(false);
   }
 
-  function changeStatus(
-    id: string,
-    status: Budget['status']
+  function handleEdit(
+    budget: Budget
   ) {
 
-    setBudgets(prev =>
-      prev.map(b =>
-        b.id === id
-          ? {
-              ...b,
-              status,
-            }
-          : b
-      )
+    setEditingId(
+      budget.id
     );
 
-    toast.success(
-      'Status atualizado!'
+    setForm({
+      client_name:
+        budget.client_name,
+
+      notes:
+        budget.notes || '',
+
+      valid_until:
+        budget.valid_until || '',
+    });
+
+    setItems(
+      budget.items
     );
+
+    setModalOpen(true);
   }
 
-  function handleDuplicate(
-    b: Budget
-  ) {
-
-    setBudgets(prev => [
-      {
-        ...b,
-
-        id: Date.now().toString(),
-
-        status: 'draft',
-
-        client_name:
-          b.client_name +
-          ' (cópia)',
-
-        created_at:
-          new Date().toISOString(),
-      },
-
-      ...prev,
-    ]);
-
-    toast.success(
-      'Duplicado!'
-    );
-  }
-
-  function handleDelete(
+  async function handleDelete(
     id: string
   ) {
 
@@ -310,23 +363,106 @@ export default function OrcamentosPage() {
     )
       return;
 
-    setBudgets(prev =>
-      prev.filter(
-        x => x.id !== id
-      )
-    );
+    await supabase
+      .from('budgets')
+      .delete()
+      .eq('id', id);
 
     toast.success(
       'Removido.'
     );
+
+    loadData();
+  }
+
+  function generatePDF(
+    budget: Budget
+  ) {
+
+    const doc =
+      new jsPDF();
+
+    doc.setFontSize(20);
+
+    doc.text(
+      'ORÇAMENTO',
+      14,
+      20
+    );
+
+    doc.setFontSize(11);
+
+    doc.text(
+      `Cliente: ${budget.client_name}`,
+      14,
+      35
+    );
+
+    doc.text(
+      `Data: ${formatDate(
+        budget.created_at
+      )}`,
+      14,
+      42
+    );
+
+    autoTable(doc, {
+      startY: 55,
+
+      head: [[
+        'Produto',
+        'Qtd',
+        'Valor',
+        'Total',
+      ]],
+
+      body:
+        budget.items.map(
+          item => [
+            item.description,
+            item.quantity,
+            formatCurrency(
+              item.unit_price
+            ),
+            formatCurrency(
+              item.total
+            ),
+          ]
+        ),
+    });
+
+    doc.text(
+      `TOTAL: ${formatCurrency(
+        budget.total
+      )}`,
+      14,
+      doc
+        .lastAutoTable
+        .finalY + 15
+    );
+
+    if (budget.notes) {
+
+      doc.text(
+        `Obs: ${budget.notes}`,
+        14,
+        doc
+          .lastAutoTable
+          .finalY + 28
+      );
+    }
+
+    doc.save(
+      `orcamento-${budget.client_name}.pdf`
+    );
   }
 
   return (
+
     <div>
 
       <PageHeader
         title="Orçamentos"
-
         subtitle="Crie e gerencie orçamentos."
 
         action={
@@ -361,6 +497,7 @@ export default function OrcamentosPage() {
 
           className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-gray-100 outline-none text-sm font-semibold focus:border-pink-300 bg-white"
         />
+
       </div>
 
       {/* LISTA */}
@@ -394,7 +531,9 @@ export default function OrcamentosPage() {
           {filtered.map(b => {
 
             const sc =
-              STATUS_MAP[b.status];
+              STATUS_MAP[
+                b.status
+              ];
 
             return (
 
@@ -417,12 +556,6 @@ export default function OrcamentosPage() {
                       )}
                     </p>
 
-                    {b.notes && (
-                      <p className="text-xs text-gray-500 mt-1 italic">
-                        {b.notes}
-                      </p>
-                    )}
-
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -435,102 +568,43 @@ export default function OrcamentosPage() {
                       {sc.label}
                     </Badge>
 
-                    <p
-                      className="text-2xl font-black"
-                      style={{
-                        color:
-                          '#FF6BAD',
-                      }}
-                    >
+                    <p className="text-2xl font-black text-pink-500">
                       {formatCurrency(
                         b.total
                       )}
                     </p>
 
                   </div>
+
                 </div>
 
-                {/* ITENS */}
-                <div className="rounded-xl border border-gray-100 overflow-hidden mb-4">
-
-                  {b.items.map(
-                    (item, i) => (
-
-                      <div
-                        key={i}
-                        className="flex items-center justify-between px-4 py-2.5 odd:bg-gray-50 text-sm"
-                      >
-
-                        <span className="font-semibold text-gray-700">
-                          {
-                            item.description
-                          }
-                        </span>
-
-                        <span className="font-black text-gray-800">
-                          {formatCurrency(
-                            item.total
-                          )}
-                        </span>
-
-                      </div>
-                    )
-                  )}
-                </div>
-
-                {/* AÇÕES */}
                 <div className="flex flex-wrap gap-2">
 
-                  <Select
-                    value={b.status}
-
-                    onChange={e =>
-                      changeStatus(
-                        b.id,
-                        e.target
-                          .value as Budget['status']
-                      )
-                    }
-
-                    options={Object.entries(
-                      STATUS_MAP
-                    ).map(
-                      ([
-                        v,
-                        { label },
-                      ]) => ({
-                        value: v,
-                        label,
-                      })
-                    )}
-
-                    className="text-xs py-2 rounded-lg"
-                  />
-
                   <Button
-                    variant="secondary"
                     size="sm"
-                    icon={Copy}
+                    variant="secondary"
+                    icon={Pencil}
                     onClick={() =>
-                      handleDuplicate(
-                        b
-                      )
+                      handleEdit(b)
                     }
                   >
-                    Duplicar
+                    Editar
                   </Button>
 
                   <Button
-                    variant="secondary"
                     size="sm"
+                    variant="secondary"
                     icon={FileDown}
+                    onClick={() =>
+                      generatePDF(b)
+                    }
                   >
                     PDF
                   </Button>
 
                   <Button
-                    variant="danger"
                     size="sm"
+                    variant="danger"
                     icon={Trash2}
                     onClick={() =>
                       handleDelete(
@@ -542,10 +616,13 @@ export default function OrcamentosPage() {
                   </Button>
 
                 </div>
+
               </div>
             );
           })}
+
         </div>
+
       )}
 
       {/* MODAL */}
@@ -556,7 +633,11 @@ export default function OrcamentosPage() {
           setModalOpen(false)
         }
 
-        title="Novo orçamento"
+        title={
+          editingId
+            ? 'Editar orçamento'
+            : 'Novo orçamento'
+        }
 
         size="xl"
       >
@@ -565,7 +646,7 @@ export default function OrcamentosPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-            <Input
+            <Select
               label="Cliente"
 
               value={
@@ -579,6 +660,25 @@ export default function OrcamentosPage() {
                     e.target.value,
                 }))
               }
+
+              options={[
+                ...clients.map(
+                  c => ({
+                    value:
+                      c.name,
+                    label:
+                      c.name,
+                  })
+                ),
+
+                {
+                  value:
+                    'CLIENTE_PERSONALIZADO',
+
+                  label:
+                    '+ Novo cliente',
+                },
+              ]}
             />
 
             <Input
@@ -601,6 +701,23 @@ export default function OrcamentosPage() {
 
           </div>
 
+          {form.client_name ===
+            'CLIENTE_PERSONALIZADO' && (
+
+            <Input
+              label="Novo cliente"
+
+              onChange={e =>
+                setForm(f => ({
+                  ...f,
+                  client_name:
+                    e.target.value,
+                }))
+              }
+            />
+
+          )}
+
           {/* ITENS */}
           <div className="space-y-3">
 
@@ -614,21 +731,56 @@ export default function OrcamentosPage() {
 
                   <div className="col-span-5">
 
-                    <Input
-                      label="Descrição"
+                    <Select
+                      label="Produto"
 
                       value={
                         item.description
                       }
 
-                      onChange={e =>
-                        updateItem(
-                          i,
-                          'description',
+                      onChange={e => {
+
+                        if (
                           e.target
-                            .value
-                        )
-                      }
+                            .value ===
+                          'PERSONALIZADO'
+                        ) {
+
+                          updateItem(
+                            i,
+                            'description',
+                            ''
+                          );
+
+                          return;
+                        }
+
+                        handleProductSelect(
+                          i,
+                          e.target.value
+                        );
+                      }}
+
+                      options={[
+                        ...products.map(
+                          p => ({
+                            value:
+                              p.name,
+                            label:
+                              `${p.name} - ${formatCurrency(
+                                p.sale_price
+                              )}`,
+                          })
+                        ),
+
+                        {
+                          value:
+                            'PERSONALIZADO',
+
+                          label:
+                            '+ Produto personalizado',
+                        },
+                      ]}
                     />
 
                   </div>
@@ -664,8 +816,7 @@ export default function OrcamentosPage() {
                       type="number"
 
                       value={
-                        item.unit_price ||
-                        ''
+                        item.unit_price
                       }
 
                       onChange={e =>
@@ -716,6 +867,7 @@ export default function OrcamentosPage() {
                     </button>
 
                   </div>
+
                 </div>
               )
             )}
@@ -746,27 +898,20 @@ export default function OrcamentosPage() {
             <div className="flex justify-end">
 
               <div
-                className="rounded-xl px-4 py-2"
-                style={{
-                  background:
-                    '#FFF0F6',
-                }}
+                className="rounded-xl px-4 py-2 bg-pink-50"
               >
-                <span
-                  className="font-black"
-                  style={{
-                    color:
-                      '#FF6BAD',
-                  }}
-                >
+
+                <span className="font-black text-pink-500">
                   Total:{' '}
                   {formatCurrency(
                     total
                   )}
                 </span>
+
               </div>
 
             </div>
+
           </div>
 
           <Textarea
@@ -800,11 +945,16 @@ export default function OrcamentosPage() {
             onClick={handleSave}
             loading={loading}
           >
-            Criar orçamento
+            {editingId
+              ? 'Salvar alterações'
+              : 'Criar orçamento'}
           </Button>
 
         </div>
+
       </Modal>
+
     </div>
+
   );
 }
