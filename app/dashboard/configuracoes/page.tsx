@@ -72,7 +72,6 @@ export default function ConfiguracoesPage() {
       city: '',
       state: 'PR',
 
-      // 🔥 PERSONALIZAÇÃO
       primary_color: '#FF4FA3',
       secondary_color: '#1A1F5E',
       logo_url: '',
@@ -94,10 +93,47 @@ export default function ConfiguracoesPage() {
     setSaving(true);
 
     const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+
+      toast.error(
+        'Usuário não encontrado'
+      );
+
+      setSaving(false);
+
+      return;
+    }
+
+    const {
       error,
     } = await supabase
       .from('companies')
       .upsert({
+
+        user_id:
+          user.id,
+
+        name:
+          empresa.name,
+
+        owner:
+          empresa.owner,
+
+        whatsapp:
+          empresa.whatsapp,
+
+        instagram:
+          empresa.instagram,
+
+        city:
+          empresa.city,
+
+        state:
+          empresa.state,
+
         primary_color:
           empresa.primary_color,
 
@@ -106,9 +142,12 @@ export default function ConfiguracoesPage() {
 
         logo_url:
           empresa.logo_url,
+
       });
 
     if (error) {
+
+      console.error(error);
 
       toast.error(
         'Erro ao salvar'
@@ -312,14 +351,13 @@ export default function ConfiguracoesPage() {
 
           </div>
 
-          {/* 🔥 PERSONALIZAÇÃO PRO */}
+          {/* PERSONALIZAÇÃO */}
           <div className="mt-10 border-t pt-8">
 
             <h2 className="text-2xl font-black text-[#1A1F5E] mb-6">
               Personalização PRO
             </h2>
 
-            {/* PREVIEW */}
             {logoPreview && (
 
               <img
@@ -340,7 +378,6 @@ export default function ConfiguracoesPage() {
 
             )}
 
-            {/* LOGO */}
             <div className="mb-6">
 
               <label className="block text-sm font-bold text-[#1A1F5E] mb-2">
@@ -369,6 +406,8 @@ export default function ConfiguracoesPage() {
                       );
 
                   if (error) {
+
+                    console.error(error);
 
                     toast.error(
                       'Erro ao enviar logo'
@@ -411,10 +450,8 @@ export default function ConfiguracoesPage() {
 
             </div>
 
-            {/* CORES */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-              {/* COR PRINCIPAL */}
               <div>
 
                 <label className="block text-sm font-bold text-[#1A1F5E] mb-2">
@@ -446,7 +483,6 @@ export default function ConfiguracoesPage() {
 
               </div>
 
-              {/* COR SECUNDÁRIA */}
               <div>
 
                 <label className="block text-sm font-bold text-[#1A1F5E] mb-2">
@@ -482,7 +518,6 @@ export default function ConfiguracoesPage() {
 
           </div>
 
-          {/* BOTÃO */}
           <div className="mt-6">
 
             <Button
@@ -491,167 +526,6 @@ export default function ConfiguracoesPage() {
               loading={saving}
             >
               Salvar dados da empresa
-            </Button>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* FINANCEIRO */}
-{activeTab === 'financeiro' && (
-
-  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-2xl">
-
-    <h2 className="font-black text-gray-800 mb-5">
-      Configurações financeiras
-    </h2>
-
-    <div className="space-y-4">
-
-      <Input
-        label="Horas trabalhadas por dia"
-        type="number"
-        value={financeiro.work_hours_day}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            work_hours_day:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-      <Input
-        label="Dias trabalhados por mês"
-        type="number"
-        value={financeiro.work_days_month}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            work_days_month:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-      <Input
-        label="Meta de lucro (%)"
-        type="number"
-        value={financeiro.profit_goal}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            profit_goal:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-      <Input
-        label="Margem padrão (%)"
-        type="number"
-        value={financeiro.default_margin}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            default_margin:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-      <Input
-        label="Comissão padrão (%)"
-        type="number"
-        value={financeiro.default_commission}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            default_commission:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-      <Input
-        label="Desperdício padrão (%)"
-        type="number"
-        value={financeiro.default_waste}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            default_waste:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-      <Input
-        label="Valor hora trabalhada"
-        type="number"
-        value={financeiro.hourly_rate}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            hourly_rate:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-      <div className="pt-4">
-
-        <Button
-          icon={Save}
-          onClick={handleSave}
-          loading={saving}
-        >
-          Salvar configurações financeiras
-        </Button>
-
-      </div>
-
-    </div>
-
-  </div>
-)}
-
-      {/* CONTA */}
-      {activeTab === 'conta' && (
-
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-2xl">
-
-          <h2 className="font-black text-gray-800 mb-5">
-            Conta & Plano
-          </h2>
-
-          <div className="space-y-5">
-
-            <div className="p-5 rounded-2xl border border-pink-100 bg-pink-50">
-
-              <p className="text-sm text-gray-500 mb-2">
-                Plano atual
-              </p>
-
-              <h3 className="text-2xl font-black text-[#1A1F5E]">
-                {PLAN_LABELS[
-                  plan || 'basic'
-                ]}
-              </h3>
-
-            </div>
-
-            <Button
-              icon={
-                portalLoading
-                  ? Loader2
-                  : ExternalLink
-              }
-              onClick={handlePortal}
-              loading={portalLoading}
-            >
-              Gerenciar assinatura
             </Button>
 
           </div>
