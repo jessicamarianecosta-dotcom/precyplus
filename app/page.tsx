@@ -679,8 +679,11 @@ export default function PrecyPlusLanding() {
                   {l}
                 </a>
               ))}
-              <a href="/cadastro" className="btn-main text-white text-sm font-bold px-5 py-3 rounded-xl text-center mt-2">
-                <span>Começar Grátis →</span>
+              <a href="/login" onClick={() => setMobileOpen(false)} className="text-sm font-semibold text-[#1E1B4B]/70 hover:text-[#FF4FA3] transition-colors py-2 text-center border border-pink-100 rounded-xl">
+                Entrar
+              </a>
+              <a href="/cadastro" className="btn-main text-white text-sm font-bold px-5 py-3 rounded-xl text-center">
+                <span>Começar 7 dias grátis →</span>
               </a>
             </motion.div>
           )}
