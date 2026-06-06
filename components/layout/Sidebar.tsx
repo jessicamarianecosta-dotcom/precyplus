@@ -81,9 +81,6 @@ export default function Sidebar() {
   const isPro = true;
 
   function handleProClick() {
-
-    if (isPro) return;
-
     router.push('/assinatura');
   }
 
@@ -125,60 +122,9 @@ export default function Sidebar() {
             const active =
               pathname === item.href;
 
-            // 🔥 PRO
-            if (item.pro) {
+            // 🔒 USUÁRIO BASIC
+            if (item.pro && !isPro) {
 
-              // 🔓 PRO LIBERADO
-              if (isPro) {
-
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={`
-                      flex items-center justify-between
-                      h-14 px-4 rounded-2xl
-                      transition-all
-                      ${
-                        active
-                          ? 'bg-pink-50'
-                          : 'hover:bg-gray-50'
-                      }
-                    `}
-                  >
-
-                    <div className="flex items-center gap-4">
-
-                      <Icon
-                        size={21}
-                        className={
-                          active
-                            ? 'text-pink-500'
-                            : 'text-gray-400'
-                        }
-                      />
-
-                      <span
-                        className={`text-[16px] font-bold ${
-                          active
-                            ? 'text-pink-500'
-                            : 'text-[#364152]'
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-
-                    </div>
-
-                    <div className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-black">
-                      PRO
-                    </div>
-
-                  </Link>
-                );
-              }
-
-              // 🔒 BASIC
               return (
                 <button
                   key={item.label}
@@ -211,7 +157,57 @@ export default function Sidebar() {
               );
             }
 
-            // NORMAL
+            // 🔓 USUÁRIO PRO
+            if (item.pro && isPro) {
+
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`
+                    flex items-center justify-between
+                    h-14 px-4 rounded-2xl
+                    transition-all
+                    ${
+                      active
+                        ? 'bg-pink-50'
+                        : 'hover:bg-gray-50'
+                    }
+                  `}
+                >
+
+                  <div className="flex items-center gap-4">
+
+                    <Icon
+                      size={21}
+                      className={
+                        active
+                          ? 'text-pink-500'
+                          : 'text-gray-400'
+                      }
+                    />
+
+                    <span
+                      className={`text-[16px] font-bold ${
+                        active
+                          ? 'text-pink-500'
+                          : 'text-[#364152]'
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+
+                  </div>
+
+                  <div className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-black">
+                    PRO
+                  </div>
+
+                </Link>
+              );
+            }
+
+            // 🔹 NORMAL
             return (
               <Link
                 key={item.label}
@@ -250,6 +246,7 @@ export default function Sidebar() {
                   </span>
 
                 </div>
+
               </Link>
             );
           })}
