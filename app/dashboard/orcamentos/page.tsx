@@ -271,18 +271,17 @@ export default function OrcamentosPage() {
         if (i !== idx)
           return item;
 
+        const selectedPrice =
+          Number(product.sale_price ?? item.unit_price ?? 0);
+
         return {
           ...item,
           description:
             product.name,
           unit_price:
-            Number(
-              product.sale_price
-            ),
+            selectedPrice,
           total:
-            Number(
-              product.sale_price
-            ) *
+            selectedPrice *
             Number(
               item.quantity
             ),

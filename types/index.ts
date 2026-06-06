@@ -54,6 +54,7 @@ export interface Product {
   name: string;
   category: string;
   description?: string;
+  sale_price?: number;
   materials: ProductMaterial[];
   labor_time_minutes: number;
   created_at: string;
