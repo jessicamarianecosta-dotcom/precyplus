@@ -37,6 +37,8 @@ import { createClient } from '@/lib/supabase/client';
 import type {
   Budget,
   BudgetItem,
+  Client,
+  Product,
 } from '@/types';
 
 const STATUS_MAP = {
@@ -70,10 +72,10 @@ export default function OrcamentosPage() {
     useState<Budget[]>([]);
 
   const [clients, setClients] =
-    useState<any[]>([]);
+    useState<Client[]>([]);
 
   const [products, setProducts] =
-    useState<any[]>([]);
+    useState<Product[]>([]);
 
   const [editingId, setEditingId] =
     useState<string | null>(null);
@@ -160,6 +162,63 @@ export default function OrcamentosPage() {
     (s, i) => s + i.total,
     0
   );
+
+  const clientOptions = [
+    { value: '', label: 'Selecione um cliente' },
+    ...clients.map(client => ({
+      value: client.name,
+      label: client.name,
+    })),
+  ];
+
+  const productOptions = [
+    { value: '', label: 'Selecione um produto' },
+    ...products.map(product => ({
+      value: product.name,
+      label: product.name,
+    })),
+  ];
+
+  function resetForm() {
+    setEditingId(null);
+
+    setForm({
+      client_name: '',
+      notes: '',
+      valid_until: '',
+    });
+
+    setItems([
+      {
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        total: 0,
+      },
+    ]);
+  }
+
+  function openNewBudget() {
+    resetForm();
+    setModalOpen(true);
+  }
+
+  function handleAddItem() {
+    setItems(prev => [
+      ...prev,
+      {
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        total: 0,
+      },
+    ]);
+  }
+
+  function handleRemoveItem(idx: number) {
+    if (items.length === 1) return;
+    setItems(prev => prev.filter((_, i) => i !== idx));
+  }
 
   function updateItem(
     idx: number,
@@ -455,4 +514,195 @@ export default function OrcamentosPage() {
       `orcamento-${budget.client_name}.pdf`
     );
   }
+
+  return (
+    <div>
+      <PageHeader
+        title="Orçamentos"
+        subtitle="Crie, edite e envie seus orçamentos."
+        action={
+          <Button icon={Plus} onClick={openNewBudget}>
+            Novo orçamento
+          </Button>
+        }
+      />
+
+      <div className="relative mb-6 max-w-md">
+        <Search
+          size={15}
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+        />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar por cliente..."
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-gray-100 outline-none text-sm font-semibold focus:border-pink-300 bg-white"
+          style={{ fontFamily: 'Nunito, sans-serif' }}
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-100">
+          <EmptyState
+            icon="📄"
+            title="Nenhum orçamento encontrado"
+            description="Cadastre o primeiro orçamento."
+            action={
+              <Button icon={Plus} onClick={openNewBudget}>
+                Criar orçamento
+              </Button>
+            }
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {filtered.map(budget => (
+            <div
+              key={budget.id}
+              className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-black text-gray-900">
+                    {budget.client_name}
+                  </h3>
+                  <p className="text-xs text-gray-500 font-semibold">
+                    Criado em {formatDate(budget.created_at)}
+                  </p>
+                </div>
+                <Badge variant={STATUS_MAP[budget.status].variant}>
+                  {STATUS_MAP[budget.status].label}
+                </Badge>
+              </div>
+
+              <div className="grid gap-2 text-sm text-gray-600 mb-4">
+                <div className="flex items-center justify-between">
+                  <span>Validade</span>
+                  <span>{budget.valid_until ? formatDate(budget.valid_until) : 'Não definida'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Total</span>
+                  <span className="font-black">{formatCurrency(budget.total)}</span>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-500 mb-4">
+                {budget.notes || 'Sem observações'}
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <Button variant="ghost" onClick={() => generatePDF(budget)}>
+                  PDF
+                </Button>
+                <Button variant="secondary" onClick={() => handleEdit(budget)}>
+                  Editar
+                </Button>
+                <Button variant="danger" onClick={() => handleDelete(budget.id)}>
+                  Excluir
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editingId ? 'Editar orçamento' : 'Novo orçamento'}
+        size="xl"
+      >
+        <div className="space-y-6">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Select
+              label="Cliente *"
+              options={clientOptions}
+              value={form.client_name}
+              onChange={e => setForm({ ...form, client_name: e.target.value })}
+            />
+            <Input
+              label="Validade"
+              type="date"
+              value={form.valid_until}
+              onChange={e => setForm({ ...form, valid_until: e.target.value })}
+            />
+            <Input
+              label="Total"
+              type="text"
+              value={formatCurrency(total)}
+              disabled
+            />
+          </div>
+
+          <Textarea
+            label="Observações"
+            value={form.notes}
+            onChange={e => setForm({ ...form, notes: e.target.value })}
+            rows={3}
+            placeholder="Texto adicional para o orçamento"
+          />
+
+          <div className="space-y-4">
+            {items.map((item, idx) => (
+              <div
+                key={idx}
+                className="grid gap-3 md:grid-cols-[1.8fr_0.8fr_0.9fr_0.9fr_auto] items-end"
+              >
+                <div>
+                  <Select
+                    label="Produto"
+                    options={productOptions}
+                    value={item.description}
+                    onChange={e => handleProductSelect(idx, e.target.value)}
+                  />
+                </div>
+                <Input
+                  label="Qtd"
+                  type="number"
+                  min={1}
+                  value={item.quantity}
+                  onChange={e => updateItem(idx, 'quantity', Number(e.target.value))}
+                />
+                <Input
+                  label="Valor unit."
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={item.unit_price}
+                  onChange={e => updateItem(idx, 'unit_price', Number(e.target.value))}
+                />
+                <Input
+                  label="Total"
+                  type="text"
+                  value={formatCurrency(item.total)}
+                  disabled
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveItem(idx)}
+                  className="text-red-500 hover:text-red-600 font-bold text-xl"
+                  aria-label="Remover item"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <Button variant="secondary" icon={Plus} onClick={handleAddItem}>
+            Adicionar item
+          </Button>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6">
+          <Button variant="ghost" onClick={() => setModalOpen(false)}>
+            Cancelar
+          </Button>
+          <Button loading={loading} onClick={handleSave}>
+            Salvar orçamento
+          </Button>
+        </div>
+      </Modal>
+    </div>
+  );
 }
