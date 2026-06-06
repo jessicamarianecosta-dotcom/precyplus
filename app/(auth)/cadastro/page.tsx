@@ -16,11 +16,9 @@ e: React.FormEvent
 ) {
 e.preventDefault();
 
-```
 setLoading(true);
 
 try {
-  // cria usuário
   const { data, error } =
     await supabase.auth.signUp({
       email,
@@ -29,13 +27,10 @@ try {
 
   if (error) {
     alert(error.message);
-
     setLoading(false);
-
     return;
   }
 
-  // salva profile
   if (data.user) {
     await supabase.from('profiles').insert({
       id: data.user.id,
@@ -48,12 +43,10 @@ try {
   window.location.href = '/dashboard';
 } catch (err) {
   console.error(err);
-
   alert('Erro ao criar conta');
 }
 
 setLoading(false);
-```
 
 }
 
@@ -83,9 +76,10 @@ fontWeight: 800,
 marginBottom: 20,
 }}
 >
-Criar conta </h1>
+Criar conta
 
-```
+
+
     <input
       type="email"
       placeholder="E-mail"
@@ -151,7 +145,6 @@ Criar conta </h1>
     </p>
   </form>
 </main>
-```
 
 );
 }
