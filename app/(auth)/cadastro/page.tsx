@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import { createClient } from '@/lib/supabase/client';
 
 export default function CadastroPage() {
