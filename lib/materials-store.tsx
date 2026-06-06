@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import {
   createContext,
@@ -90,9 +90,22 @@ export function MaterialsProvider({
   const [loading, setLoading] =
     useState(true);
 
+  const PENDING_KEY = 'precy_pending_materials';
+
   useEffect(() => {
     reloadMaterials();
     loadMovements();
+    // try to sync any locally saved pending materials
+    (async () => {
+      await new Promise(r => setTimeout(r, 500));
+      try { await syncPendingMaterials(); } catch (e) { /* ignore */ }
+    })();
+
+    const _int = setInterval(() => {
+      syncPendingMaterials();
+    }, 1000 * 60 * 2); // every 2 minutes
+
+    return () => clearInterval(_int);
   }, []);
 
   async function reloadMaterials() {
@@ -201,27 +214,108 @@ export function MaterialsProvider({
             data.purchased_qty
           );
 
-                const { data: inserted, error } = await supabase
-          .from('materials')
-          .insert({
-            ...data,
-            user_id: auth.user?.id,
-            unit_cost,
-            available_qty: data.available_qty ?? data.purchased_qty,
-          })
-          .select()
-          .single();
+        try {
+          const { data: inserted, error } = await supabase
+            .from('materials')
+            .insert({
+              ...data,
+              user_id: auth.user?.id,
+              unit_cost,
+              available_qty: data.available_qty ?? data.purchased_qty,
+            })
+            .select()
+            .single();
 
-        if (error) {
-          console.error('Supabase insert material error:', error);
-          throw new Error(error.message || 'Erro ao cadastrar material');
+          if (error) throw error;
+
+          await reloadMaterials();
+        } catch (err) {
+          // Fallback: save locally to be synced later
+          try {
+            const id = (globalThis.crypto && (globalThis.crypto as any).randomUUID)
+              ? (globalThis.crypto as any).randomUUID()
+              : String(Date.now());
+
+            const pendingItem: Material = {
+              id,
+              user_id: auth.user?.id || null,
+              name: data.name,
+              category: data.category,
+              purchased_qty: Number(data.purchased_qty) || 0,
+              unit: data.unit,
+              paid_value: Number(data.paid_value) || 0,
+              available_qty: Number(data.available_qty ?? data.purchased_qty) || 0,
+              min_stock: Number(data.min_stock) || 0,
+              observations: data.observations || '',
+              unit_cost: unit_cost,
+              created_at: new Date().toISOString(),
+            } as Material;
+
+            const raw = localStorage.getItem(PENDING_KEY);
+            const list: Material[] = raw ? JSON.parse(raw) : [];
+            list.unshift(pendingItem);
+            localStorage.setItem(PENDING_KEY, JSON.stringify(list));
+
+            // show in UI immediately
+            setMaterials(prev => [pendingItem, ...prev]);
+          } catch (localErr) {
+            console.error('Failed to save pending material locally', localErr);
+            throw err;
+          }
         }
-
-
-        await reloadMaterials();
       },
       []
     );
+
+  // Try to sync pending materials saved in localStorage to Supabase
+  async function syncPendingMaterials() {
+    try {
+      const raw = localStorage.getItem(PENDING_KEY);
+      if (!raw) return;
+      const list: Material[] = JSON.parse(raw);
+      if (!Array.isArray(list) || list.length === 0) return;
+
+      const { data: auth } = await supabase.auth.getUser();
+
+      const remaining: Material[] = [];
+
+      for (const itm of list) {
+        try {
+          const payload = {
+            name: itm.name,
+            category: itm.category,
+            purchased_qty: itm.purchased_qty,
+            unit: itm.unit,
+            paid_value: itm.paid_value,
+            available_qty: itm.available_qty,
+            min_stock: itm.min_stock,
+            observations: itm.observations,
+            user_id: auth.user?.id || itm.user_id,
+          };
+
+          const { error } = await supabase.from('materials').insert(payload);
+          if (error) {
+            console.warn('Sync: insert error for pending material', itm.id, error.message);
+            remaining.push(itm);
+          }
+        } catch (e) {
+          console.warn('Sync attempt failed for item', itm.id, e);
+          remaining.push(itm);
+        }
+      }
+
+      if (remaining.length === 0) {
+        localStorage.removeItem(PENDING_KEY);
+      } else {
+        localStorage.setItem(PENDING_KEY, JSON.stringify(remaining));
+      }
+
+      // refresh from server to reflect successful inserts
+      await reloadMaterials();
+    } catch (e) {
+      console.warn('syncPendingMaterials error', e);
+    }
+  }
 
   // UPDATE
   const updateMaterial =
