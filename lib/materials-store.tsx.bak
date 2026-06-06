@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import {
   createContext,
@@ -201,22 +201,21 @@ export function MaterialsProvider({
             data.purchased_qty
           );
 
-                const { data: inserted, error } = await supabase
+        await supabase
           .from('materials')
           .insert({
+
             ...data,
-            user_id: auth.user?.id,
+
+            user_id:
+              auth.user?.id,
+
             unit_cost,
-            available_qty: data.available_qty ?? data.purchased_qty,
-          })
-          .select()
-          .single();
 
-        if (error) {
-          console.error('Supabase insert material error:', error);
-          throw new Error(error.message || 'Erro ao cadastrar material');
-        }
-
+            available_qty:
+              data.available_qty ??
+              data.purchased_qty,
+          });
 
         await reloadMaterials();
       },

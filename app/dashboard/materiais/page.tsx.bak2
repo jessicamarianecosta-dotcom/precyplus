@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { Plus, Search, Edit2, Trash2, TrendingDown, History } from 'lucide-react';
@@ -64,19 +64,12 @@ export default function MateriaisPage() {
       observations:  form.observations,
     };
 
-    try {
-      if (editing) {
-        await updateMaterial(editing.id, data);
-        toast.success('Material atualizado!');
-      } else {
-        await addMaterial(data);
-        toast.success('Material cadastrado! 📦');
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Erro ao salvar material: ' + ((err as any)?.message || String(err)));
-      setLoading(false);
-      return;
+    if (editing) {
+      updateMaterial(editing.id, data);
+      toast.success('Material atualizado!');
+    } else {
+      addMaterial(data);
+      toast.success('Material cadastrado! 📦');
     }
     setModalOpen(false);
     setLoading(false);
@@ -287,5 +280,3 @@ export default function MateriaisPage() {
     </div>
   );
 }
-
-
