@@ -391,84 +391,123 @@ export default function ConfiguracoesPage() {
       )}
 
       {/* FINANCEIRO */}
-      {activeTab === 'financeiro' && (
+{activeTab === 'financeiro' && (
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-2xl">
+  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-4xl">
 
-          <h2 className="font-black text-gray-800 mb-5">
-            Configurações financeiras
-          </h2>
+    <h2 className="font-black text-gray-800 mb-5">
+      Configurações financeiras
+    </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-            <Input
-              label="Horas trabalhadas por dia"
-              type="number"
-              value={String(financeiro.work_hours_day)}
-              onChange={(e) =>
-                setFinanceiro((f) => ({
-                  ...f,
-                  work_hours_day:
-                    Number(e.target.value),
-                }))
-              }
-            />
+      <Input
+        label="Horas trabalhadas por dia"
+        type="number"
+        value={String(financeiro.work_hours_day)}
+        onChange={(e) =>
+          setFinanceiro((f) => ({
+            ...f,
+            work_hours_day:
+              Number(e.target.value),
+          }))
+        }
+      />
 
-            <Input
-              label="Dias trabalhados por mês"
-              type="number"
-              value={String(financeiro.work_days_month)}
-              onChange={(e) =>
-                setFinanceiro((f) => ({
-                  ...f,
-                  work_days_month:
-                    Number(e.target.value),
-                }))
-              }
-            />
+      <Input
+        label="Dias trabalhados por mês"
+        type="number"
+        value={String(financeiro.work_days_month)}
+        onChange={(e) =>
+          setFinanceiro((f) => ({
+            ...f,
+            work_days_month:
+              Number(e.target.value),
+          }))
+        }
+      />
 
-            <Input
-              label="Meta de lucro (%)"
-              type="number"
-              value={String(financeiro.profit_goal)}
-              onChange={(e) =>
-                setFinanceiro((f) => ({
-                  ...f,
-                  profit_goal:
-                    Number(e.target.value),
-                }))
-              }
-            />
+      <Input
+        label="Meta de lucro (%)"
+        type="number"
+        value={String(financeiro.profit_goal)}
+        onChange={(e) =>
+          setFinanceiro((f) => ({
+            ...f,
+            profit_goal:
+              Number(e.target.value),
+          }))
+        }
+      />
 
-            <Input
-              label="Margem padrão (%)"
-              type="number"
-              value={String(financeiro.default_margin)}
-              onChange={(e) =>
-                setFinanceiro((f) => ({
-                  ...f,
-                  default_margin:
-                    Number(e.target.value),
-                }))
-              }
-            />
+      <Input
+        label="Margem padrão (%)"
+        type="number"
+        value={String(financeiro.default_margin)}
+        onChange={(e) =>
+          setFinanceiro((f) => ({
+            ...f,
+            default_margin:
+              Number(e.target.value),
+          }))
+        }
+      />
 
-          </div>
+      <Input
+        label="Comissão padrão (%)"
+        type="number"
+        value={String(financeiro.default_commission)}
+        onChange={(e) =>
+          setFinanceiro((f) => ({
+            ...f,
+            default_commission:
+              Number(e.target.value),
+          }))
+        }
+      />
 
-          <div className="mt-6">
+      <Input
+        label="Desperdício padrão (%)"
+        type="number"
+        value={String(financeiro.default_waste)}
+        onChange={(e) =>
+          setFinanceiro((f) => ({
+            ...f,
+            default_waste:
+              Number(e.target.value),
+          }))
+        }
+      />
 
-            <Button
-              icon={Save}
-              onClick={handleSave}
-              loading={saving}
-            >
-              Salvar configurações
-            </Button>
+      <Input
+        label="Valor da hora trabalhada (R$)"
+        type="number"
+        value={String(financeiro.hourly_rate)}
+        onChange={(e) =>
+          setFinanceiro((f) => ({
+            ...f,
+            hourly_rate:
+              Number(e.target.value),
+          }))
+        }
+      />
 
-          </div>
+    </div>
 
-        </div>
-      )}
+    <div className="mt-6">
+
+      <Button
+        icon={Save}
+        onClick={handleSave}
+        loading={saving}
+      >
+        Salvar configurações
+      </Button>
+
+    </div>
+
+  </div>
+)}
 
       {/* CONTA */}
       {activeTab === 'conta' && (

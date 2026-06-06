@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+
 import Link from 'next/link';
+
 import { createClient } from '@/lib/supabase/client';
 
 export default function CadastroPage() {
@@ -42,8 +44,13 @@ export default function CadastroPage() {
         options: {
 
           data: {
+
             display_name:
               nome,
+
+            full_name:
+              nome,
+
           },
 
         },
@@ -75,7 +82,11 @@ export default function CadastroPage() {
             display_name:
               nome,
 
+            full_name:
+              nome,
+
           });
+
       }
 
       alert(
@@ -227,5 +238,6 @@ export default function CadastroPage() {
       </form>
 
     </main>
+
   );
 }

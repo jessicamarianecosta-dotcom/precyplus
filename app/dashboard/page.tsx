@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+
 import {
   Package,
   ShoppingBag,
   Calculator,
-  TrendingUp,
   AlertTriangle,
-  ArrowRight,
 } from 'lucide-react';
 
 import Link from 'next/link';
@@ -30,8 +29,6 @@ import {
   Badge,
 } from '@/components/ui';
 
-import { formatCurrency } from '@/lib/utils';
-
 import { createClient } from '@/lib/supabase/client';
 
 const MONTHS = [
@@ -49,89 +46,134 @@ const MONTHS = [
   'Dez',
 ];
 
-const SAMPLE_CHART = [
-  { mes: 'Jan', precificacoes: 4 },
-  { mes: 'Fev', precificacoes: 7 },
-  { mes: 'Mar', precificacoes: 5 },
-  { mes: 'Abr', precificacoes: 12 },
-  { mes: 'Mai', precificacoes: 9 },
-  { mes: 'Jun', precificacoes: 15 },
-];
-
-const PIE_DATA = [
-  {
-    name: 'Materiais',
-    value: 40,
-    color: '#FFB3D1',
-  },
-
-  {
-    name: 'Custos fixos',
-    value: 25,
-    color: '#B3D4FF',
-  },
-
-  {
-    name: 'Mão de obra',
-    value: 20,
-    color: '#FFF3B0',
-  },
-
-  {
-    name: 'Margem',
-    value: 15,
-    color: '#A7F3D0',
-  },
-];
-
-const SAMPLE_MOVEMENTS = [
-  {
-    type: 'exit',
-    material: 'Papel Sulfite',
-    qty: '100 folhas',
-    date: 'Hoje',
-    product: 'Caderno A5',
-  },
-
-  {
-    type: 'entry',
-    material: 'Fita adesiva',
-    qty: '2 rolos',
-    date: 'Ontem',
-    product: 'Compra',
-  },
-
-  {
-    type: 'exit',
-    material: 'Wire-o',
-    qty: '1 unidade',
-    date: 'Ontem',
-    product: 'Agenda Semanal',
-  },
-];
-
 export default function DashboardPage() {
 
   const [userName, setUserName] =
     useState('');
 
+  const [productsCount, setProductsCount] =
+    useState(0);
+
+  const [materialsCount, setMaterialsCount] =
+    useState(0);
+
+  const [pricingCount, setPricingCount] =
+    useState(0);
+
+  const [lowStockCount, setLowStockCount] =
+    useState(0);
+
+  const [chartData, setChartData] =
+    useState([
+      { mes: 'Jan', precificacoes: 0 },
+      { mes: 'Fev', precificacoes: 0 },
+      { mes: 'Mar', precificacoes: 0 },
+      { mes: 'Abr', precificacoes: 0 },
+      { mes: 'Mai', precificacoes: 0 },
+      { mes: 'Jun', precificacoes: 0 },
+    ]);
+
+  const [pieData, setPieData] =
+    useState([
+      {
+        name: 'Materiais',
+        value: 40,
+        color: '#FFB3D1',
+      },
+
+      {
+        name: 'Custos fixos',
+        value: 25,
+        color: '#B3D4FF',
+      },
+
+      {
+        name: 'Mão de obra',
+        value: 20,
+        color: '#FFF3B0',
+      },
+
+      {
+        name: 'Margem',
+        value: 15,
+        color: '#A7F3D0',
+      },
+    ]);
+
   useEffect(() => {
 
-    const supabase =
-      createClient();
+    async function loadDashboard() {
 
-    supabase.auth
-      .getUser()
-      .then(({ data }) => {
+      const supabase =
+        createClient();
 
-        const name =
-          data.user?.user_metadata?.display_name ||
-          data.user?.email?.split('@')[0] ||
-          '';
+      const {
+        count: products,
+      } = await supabase
+        .from('products')
+        .select('*', {
+          count: 'exact',
+          head: true,
+        });
 
-        setUserName(name);
+      const {
+        count: materials,
+      } = await supabase
+        .from('materials')
+        .select('*', {
+          count: 'exact',
+          head: true,
+        });
 
-      });
+      const {
+        count: pricing,
+      } = await supabase
+        .from('pricing')
+        .select('*', {
+          count: 'exact',
+          head: true,
+        });
+
+      const {
+        data: lowStock,
+      } = await supabase
+        .from('materials')
+        .select('*')
+        .lt(
+          'current_stock',
+          5
+        );
+
+      const {
+        data: userData,
+      } = await supabase.auth
+        .getUser();
+
+      const name =
+        userData.user?.user_metadata?.display_name ||
+        userData.user?.user_metadata?.full_name ||
+        'Usuário';
+
+      setUserName(name);
+
+      setProductsCount(
+        products || 0
+      );
+
+      setMaterialsCount(
+        materials || 0
+      );
+
+      setPricingCount(
+        pricing || 0
+      );
+
+      setLowStockCount(
+        lowStock?.length || 0
+      );
+    }
+
+    loadDashboard();
 
   }, []);
 
@@ -154,13 +196,14 @@ export default function DashboardPage() {
 
     <div>
 
-      {/* Header */}
+      {/* HEADER */}
       <div className="mb-8">
 
         <h1
           className="text-2xl font-black"
           style={{
-            color: '#1A1F5E',
+            color:
+              'var(--secondary-color)',
             fontFamily:
               'Playfair Display, serif',
           }}
@@ -168,7 +211,7 @@ export default function DashboardPage() {
 
           {greeting}
           {userName
-            ? `, ${userName.split(' ')[0]}`
+            ? `, ${userName}`
             : ''}
           ! 👋
 
@@ -180,43 +223,43 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* Stats */}
+      {/* STATS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
 
         <StatCard
           label="Produtos"
-          value="12"
+          value={String(productsCount)}
           icon={ShoppingBag}
           color="pink"
         />
 
         <StatCard
           label="Materiais"
-          value="28"
+          value={String(materialsCount)}
           icon={Package}
           color="blue"
         />
 
         <StatCard
           label="Precificações"
-          value="47"
+          value={String(pricingCount)}
           icon={Calculator}
           color="yellow"
         />
 
         <StatCard
           label="Estoque baixo"
-          value="3"
+          value={String(lowStockCount)}
           icon={AlertTriangle}
           color="green"
         />
 
       </div>
 
-      {/* Charts row */}
+      {/* CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
-        {/* Bar chart */}
+        {/* BAR CHART */}
         <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-pink-50 shadow-sm">
 
           <div className="flex items-center justify-between mb-6">
@@ -234,7 +277,7 @@ export default function DashboardPage() {
             </div>
 
             <Badge variant="pink">
-              2025
+              2026
             </Badge>
 
           </div>
@@ -245,7 +288,7 @@ export default function DashboardPage() {
           >
 
             <BarChart
-              data={SAMPLE_CHART}
+              data={chartData}
               barSize={32}
             >
 
@@ -306,7 +349,7 @@ export default function DashboardPage() {
 
                   <stop
                     offset="0%"
-                    stopColor="#FF6BAD"
+                    stopColor="var(--primary-color)"
                   />
 
                   <stop
@@ -324,7 +367,7 @@ export default function DashboardPage() {
 
         </div>
 
-        {/* Pie chart */}
+        {/* PIE CHART */}
         <div className="bg-white rounded-2xl p-6 border border-pink-50 shadow-sm">
 
           <h2 className="font-black text-gray-800 mb-1">
@@ -343,7 +386,7 @@ export default function DashboardPage() {
             <PieChart>
 
               <Pie
-                data={PIE_DATA}
+                data={pieData}
                 cx="50%"
                 cy="50%"
                 innerRadius={45}
@@ -352,7 +395,7 @@ export default function DashboardPage() {
                 dataKey="value"
               >
 
-                {PIE_DATA.map(
+                {pieData.map(
                   (entry, i) => (
 
                     <Cell
@@ -378,6 +421,94 @@ export default function DashboardPage() {
           </ResponsiveContainer>
 
         </div>
+
+      </div>
+
+      {/* QUICK ACTIONS */}
+      <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+
+        {[
+          {
+            href: '/dashboard/precificacao',
+            icon: '🧮',
+            label: 'Nova precificação',
+            color: '#FFF0F6',
+          },
+
+          {
+            href: '/dashboard/produtos',
+            icon: '📦',
+            label: 'Novo produto',
+            color: '#EBF4FF',
+          },
+
+          {
+            href: '/dashboard/materiais',
+            icon: '🏪',
+            label: 'Novo material',
+            color: '#FFFBE8',
+          },
+
+          {
+            href: '/dashboard/orcamentos',
+            icon: '📋',
+            label: 'Novo orçamento',
+            color: '#F0FDF4',
+          },
+
+        ].map(
+          ({
+            href,
+            icon,
+            label,
+            color,
+          }) => (
+
+            <Link
+              key={href}
+              href={href}
+              className="
+                bg-white
+                rounded-2xl
+                p-4
+                text-center
+                border
+                border-gray-100
+                hover:border-pink-200
+                hover:shadow-md
+                transition-all
+                group
+              "
+            >
+
+              <div
+                className="
+                  w-12
+                  h-12
+                  rounded-xl
+                  flex
+                  items-center
+                  justify-center
+                  mx-auto
+                  mb-3
+                  text-2xl
+                "
+                style={{
+                  background:
+                    color,
+                }}
+              >
+                {icon}
+              </div>
+
+              <p className="text-xs font-bold text-gray-700">
+                {label}
+              </p>
+
+            </Link>
+
+          )
+        )}
 
       </div>
 
