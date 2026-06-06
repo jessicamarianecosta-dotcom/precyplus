@@ -4,8 +4,6 @@ import { useState, useEffect } from 'react';
 
 import {
   Calculator,
-  Copy,
-  Trash2,
   Search,
   ChevronDown,
   ChevronUp,
@@ -27,7 +25,7 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useMaterials } from '@/lib/materials-store';
-import type { Pricing, Product, ProductMaterial, Material } from '@/types';
+import type { Pricing, Product, ProductMaterial } from '@/types';
 
 const PRICINGS_KEY = 'precy_pricings';
 const FIXED_COSTS_KEY = 'precy_fixed_costs';
@@ -67,6 +65,7 @@ export default function PrecificacaoPage() {
   });
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingPricingId, setEditingPricingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [form, setForm] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_FORM;
@@ -255,9 +254,12 @@ export default function PrecificacaoPage() {
     }
     setLoading(true);
     await new Promise(resolve => setTimeout(resolve, 400));
+    const existingPricing = editingPricingId ? pricings.find(item => item.id === editingPricingId) : null;
+    const pricingId = editingPricingId || Date.now().toString();
+    const createdAt = existingPricing?.created_at || new Date().toISOString();
 
-    const newPricing: Pricing = {
-      id: Date.now().toString(),
+    const savedPricing: Pricing = {
+      id: pricingId,
       user_id: 'u1',
       product_id: form.product_id || undefined,
       product_name: form.product_name,
@@ -277,16 +279,67 @@ export default function PrecificacaoPage() {
       premium_price: result.premium_price || 0,
       profit_estimated: result.profit_estimated || 0,
       materials: result.materials || [],
-      created_at: new Date().toISOString(),
+      created_at: createdAt,
     };
 
-    setPricings(prev => [newPricing, ...prev]);
-    toast.success('Precificação salva!');
+    setPricings(prev => {
+      if (editingPricingId) {
+        return [savedPricing, ...prev.filter(item => item.id !== editingPricingId)];
+      }
+      return [savedPricing, ...prev];
+    });
+    toast.success(editingPricingId ? 'Precificação atualizada!' : 'Precificação salva!');
     setModalOpen(false);
+    setEditingPricingId(null);
     setForm(DEFAULT_FORM);
     setPricingMaterials([EMPTY_MATERIAL_LINE]);
     setResult(null);
     setLoading(false);
+  }
+
+  function handleEdit(pricing: Pricing) {
+    setEditingPricingId(pricing.id);
+    setForm({
+      product_id: pricing.product_id || '',
+      product_name: pricing.product_name,
+      materials_cost: pricing.materials_cost,
+      labor_time_minutes: pricing.labor_cost && form.hourly_rate ? Math.round((pricing.labor_cost / form.hourly_rate) * 60) : 0,
+      hourly_rate: form.hourly_rate,
+      packaging_cost: pricing.packaging_cost,
+      delivery_cost: pricing.delivery_cost,
+      commission_pct: pricing.commission_pct,
+      extra_taxes: pricing.extra_taxes,
+      profit_margin: pricing.profit_margin,
+      fixed_cost_daily: form.fixed_cost_daily,
+    });
+    setPricingMaterials(pricing.materials && pricing.materials.length > 0 ? pricing.materials : [EMPTY_MATERIAL_LINE]);
+    setResult({
+      materials_cost: pricing.materials_cost,
+      labor_cost: pricing.labor_cost,
+      fixed_cost_share: pricing.fixed_cost_share,
+      packaging_cost: pricing.packaging_cost,
+      delivery_cost: pricing.delivery_cost,
+      commission_pct: pricing.commission_pct,
+      extra_taxes: pricing.extra_taxes,
+      profit_margin: pricing.profit_margin,
+      direct_cost: pricing.direct_cost,
+      indirect_cost: pricing.indirect_cost,
+      total_cost: pricing.total_cost,
+      min_price: pricing.min_price,
+      recommended_price: pricing.recommended_price,
+      premium_price: pricing.premium_price,
+      profit_estimated: pricing.profit_estimated,
+      materials: pricing.materials,
+    });
+    setModalOpen(true);
+  }
+
+  function handleCancelEdit() {
+    setEditingPricingId(null);
+    setModalOpen(false);
+    setForm(DEFAULT_FORM);
+    setPricingMaterials([EMPTY_MATERIAL_LINE]);
+    setResult(null);
   }
 
   function handleDuplicate(pricing: Pricing) {
@@ -417,6 +470,17 @@ export default function PrecificacaoPage() {
                       <strong className="block text-gray-800">{formatCurrency(p.fixed_cost_share)}</strong> Custos fixos
                     </div>
                   </div>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button variant="secondary" onClick={() => handleEdit(p)}>
+                      Editar
+                    </Button>
+                    <Button variant="ghost" onClick={() => handleDuplicate(p)}>
+                      Duplicar
+                    </Button>
+                    <Button variant="danger" onClick={() => handleDelete(p.id)}>
+                      Excluir
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -424,7 +488,7 @@ export default function PrecificacaoPage() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nova precificação" size="xl">
+      <Modal open={modalOpen} onClose={handleCancelEdit} title={editingPricingId ? 'Editar precificação' : 'Nova precificação'} size="xl">
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
@@ -549,7 +613,7 @@ export default function PrecificacaoPage() {
         </div>
 
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="ghost" onClick={() => setModalOpen(false)}>
+          <Button variant="ghost" onClick={handleCancelEdit}>
             Cancelar
           </Button>
           <Button loading={loading} onClick={handleSave}>
