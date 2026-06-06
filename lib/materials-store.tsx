@@ -26,6 +26,8 @@ interface MaterialsContextType {
 
   loading: boolean;
 
+  syncPendingMaterials: () => Promise<void>;
+
   addMaterial: (
     data: Omit<
       Material,
@@ -554,6 +556,7 @@ export function MaterialsProvider({
         adjustStock,
 
         reloadMaterials,
+        syncPendingMaterials,
       }}
     >
 

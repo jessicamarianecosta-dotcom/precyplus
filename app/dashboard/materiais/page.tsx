@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, TrendingDown, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader, Button, Modal, Input, Select, Textarea, EmptyState, Badge } from '@/components/ui';
@@ -20,7 +20,7 @@ const STATUS_CONFIG = {
 };
 
 export default function MateriaisPage() {
-  const { materials, movements, addMaterial, updateMaterial, deleteMaterial, adjustStock } = useMaterials();
+  const { materials, movements, addMaterial, updateMaterial, deleteMaterial, adjustStock, syncPendingMaterials, reloadMaterials } = useMaterials();
 
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('');
@@ -82,6 +82,27 @@ export default function MateriaisPage() {
     setLoading(false);
   }
 
+  // expose sync to global for the header button to call (avoids prop drilling)
+  // register/unregister on component mount
+  useEffect(() => {
+    // @ts-ignore
+    (window as any).__materialSync = async () => {
+      setLoading(true);
+      try {
+        await syncPendingMaterials();
+        await reloadMaterials();
+        toast.success('Sincronização concluída.');
+      } catch (e) {
+        console.error(e);
+        toast.error('Falha na sincronização.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return () => { try { delete (window as any).__materialSync; } catch {} };
+  }, [syncPendingMaterials, reloadMaterials]);
+
   function handleDelete(id: string) {
     if (!confirm('Tem certeza que deseja excluir este material?')) return;
     deleteMaterial(id);
@@ -104,8 +125,9 @@ export default function MateriaisPage() {
         title="Materiais & Estoque"
         subtitle="Gerencie seus materiais. O estoque baixa automaticamente quando você cria produtos."
         action={
-          <div className="flex gap-2">
+            <div className="flex gap-2">
             <Button variant="secondary" icon={History} size="sm" onClick={() => setHistoryOpen(true)}>Histórico</Button>
+            <Button variant="secondary" size="sm" onClick={async () => { setLoading(true); try { await (window as any).__materialSync && await (window as any).__materialSync(); } catch (e) { /* noop */ } finally { setLoading(false); } }}>Sincronizar pendentes</Button>
             <Button icon={Plus} onClick={openNew}>Novo material</Button>
           </div>
         }
