@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+
+import type {
+  NextRequest,
+} from 'next/server';
 
 const PRO_ROUTES = [
   '/dashboard/financeiro',
@@ -10,22 +13,27 @@ const PRO_ROUTES = [
 export function middleware(
   request: NextRequest
 ) {
+
   const pathname =
     request.nextUrl.pathname;
 
-  const plan =
-    request.cookies.get('plan')
-      ?.value || 'basic';
+  // 🔥 LIBERADO TEMPORARIAMENTE
+  const isPro = true;
 
   const isProRoute =
-    PRO_ROUTES.some((route) =>
-      pathname.startsWith(route)
+    PRO_ROUTES.some(
+      (route) =>
+        pathname.startsWith(
+          route
+        )
     );
 
+  // 🔒 BLOQUEIA APENAS BASIC
   if (
     isProRoute &&
-    plan !== 'pro'
+    !isPro
   ) {
+
     return NextResponse.redirect(
       new URL(
         '/assinatura',

@@ -99,44 +99,24 @@ export default function Sidebar() {
   const supabase =
     createClient();
 
-  const [isPro, setIsPro] =
-    useState(false);
+  // 🔥 FORÇADO PRO
+  const isPro = true;
 
-  useEffect(() => {
+  function handleProClick(
+    item: MenuItem
+  ) {
 
-    async function loadPlan() {
+    // 🔓 PRO LIBERADO
+    if (isPro) {
 
-      const {
-        data: { user },
-      } =
-        await supabase.auth.getUser();
+      router.push(
+        item.href
+      );
 
-      if (!user) return;
-
-      const {
-        data: profile,
-      } = await supabase
-        .from('profiles')
-        .select('plan, is_pro')
-        .eq('id', user.id)
-        .single();
-
-      console.log(profile);
-
-      if (
-        profile?.plan === 'pro' ||
-        profile?.is_pro === true
-      ) {
-        setIsPro(true);
-      }
+      return;
     }
 
-    loadPlan();
-
-  }, []);
-
-  function handleProClick() {
-
+    // 🔒 BASIC
     router.push(
       '/assinatura'
     );
@@ -190,8 +170,8 @@ export default function Sidebar() {
               return (
                 <button
                   key={item.label}
-                  onClick={
-                    handleProClick
+                  onClick={() =>
+                    handleProClick(item)
                   }
                   className="
                     w-full flex items-center justify-between
