@@ -24,6 +24,10 @@ import {
   X,
 } from 'lucide-react';
 
+import {
+  useTheme,
+} from '@/lib/theme-provider';
+
 type MenuItem = {
   label: string;
   href: string;
@@ -91,6 +95,9 @@ export default function Sidebar() {
 
   const router =
     useRouter();
+
+  const theme =
+    useTheme();
 
   const [isOpen, setIsOpen] =
     useState(false);
@@ -169,19 +176,52 @@ export default function Sidebar() {
 
           <div className="flex items-center gap-3">
 
-            <div className="w-11 h-11 rounded-full border-2 border-pink-300 flex items-center justify-center bg-white">
+            <div className="w-11 h-11 rounded-full border-2 border-pink-300 flex items-center justify-center bg-white overflow-hidden">
 
-              <span className="text-sm font-black text-[#1A1F5E]">
-                P+
-              </span>
+              {theme?.logo ? (
+
+                <img
+                  src={theme.logo}
+                  alt="Logo"
+                  className="
+                    w-full
+                    h-full
+                    object-cover
+                  "
+                />
+
+              ) : (
+
+                <span
+                  className="text-sm font-black"
+                  style={{
+                    color:
+                      'var(--secondary-color)',
+                  }}
+                >
+                  P+
+                </span>
+
+              )}
 
             </div>
 
-            <h1 className="text-[22px] font-black text-[#1A1F5E]">
+            <h1
+              className="text-[22px] font-black"
+              style={{
+                color:
+                  'var(--secondary-color)',
+              }}
+            >
 
               Precy
 
-              <span className="text-pink-500">
+              <span
+                style={{
+                  color:
+                    'var(--primary-color)',
+                }}
+              >
                 +
               </span>
 
@@ -284,23 +324,25 @@ export default function Sidebar() {
 
                     <Icon
                       size={21}
-                      className={
-                        active
-                          ? 'text-pink-500'
-                          : 'text-gray-400'
-                      }
+                      style={{
+                        color:
+                          active
+                            ? 'var(--primary-color)'
+                            : '#9CA3AF',
+                      }}
                     />
 
                     <span
-                      className={`
+                      className="
                         text-[16px]
                         font-bold
-                        ${
+                      "
+                      style={{
+                        color:
                           active
-                            ? 'text-pink-500'
-                            : 'text-[#364152]'
-                        }
-                      `}
+                            ? 'var(--primary-color)'
+                            : '#364152',
+                      }}
                     >
                       {item.label}
                     </span>
@@ -345,10 +387,13 @@ export default function Sidebar() {
               flex
               items-center
               gap-4
-              bg-pink-500
               text-white
               font-bold
             "
+            style={{
+              background:
+                'var(--primary-color)',
+            }}
           >
 
             <Settings size={20} />
@@ -399,5 +444,6 @@ export default function Sidebar() {
       )}
 
     </>
+
   );
 }

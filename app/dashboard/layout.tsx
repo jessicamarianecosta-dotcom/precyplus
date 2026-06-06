@@ -4,6 +4,10 @@ import Sidebar from '@/components/layout/Sidebar';
 
 import { MaterialsProvider } from '@/lib/materials-store';
 
+import {
+  ThemeProvider,
+} from '@/lib/theme-provider';
+
 import { usePathname } from 'next/navigation';
 
 const TITLES: Record<string, string> = {
@@ -51,62 +55,72 @@ export default function DashboardLayout({
 
   return (
 
-    <MaterialsProvider>
+    <ThemeProvider>
 
-      <div className="min-h-screen flex bg-[#FFF9FB] overflow-x-hidden">
+      <MaterialsProvider>
 
-        {/* SIDEBAR */}
-        <Sidebar />
+        <div className="min-h-screen flex bg-[#FFF9FB] overflow-x-hidden">
 
-        {/* CONTEÚDO */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          {/* SIDEBAR */}
+          <Sidebar />
 
-          {/* MOBILE HEADER */}
-          <div
-            className="
-              md:hidden
-              fixed
-              top-0
-              left-0
-              right-0
-              z-30
-              h-20
-              bg-[#FFF9FB]/95
-              backdrop-blur
-              border-b
-              border-pink-100
-              flex
-              items-center
-              justify-center
-              px-6
-            "
-          >
+          {/* CONTEÚDO */}
+          <main className="flex-1 overflow-y-auto overflow-x-hidden">
 
-            <h1 className="text-2xl font-black text-[#1A1F5E]">
-              {title}
-            </h1>
+            {/* MOBILE HEADER */}
+            <div
+              className="
+                md:hidden
+                fixed
+                top-0
+                left-0
+                right-0
+                z-30
+                h-20
+                bg-[#FFF9FB]/95
+                backdrop-blur
+                border-b
+                border-pink-100
+                flex
+                items-center
+                justify-center
+                px-6
+              "
+            >
 
-          </div>
+              <h1
+                className="text-2xl font-black"
+                style={{
+                  color:
+                    'var(--secondary-color)',
+                }}
+              >
+                {title}
+              </h1>
 
-          {/* PAGE */}
-          <div
-            className="
-              max-w-7xl
-              mx-auto
-              p-3
-              md:p-8
-              overflow-x-hidden
-              pt-24
-              md:pt-8
-            "
-          >
-            {children}
-          </div>
+            </div>
 
-        </main>
+            {/* PAGE */}
+            <div
+              className="
+                max-w-7xl
+                mx-auto
+                p-3
+                md:p-8
+                overflow-x-hidden
+                pt-24
+                md:pt-8
+              "
+            >
+              {children}
+            </div>
 
-      </div>
+          </main>
 
-    </MaterialsProvider>
+        </div>
+
+      </MaterialsProvider>
+
+    </ThemeProvider>
   );
 }
