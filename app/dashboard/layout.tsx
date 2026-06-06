@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import { Menu } from 'lucide-react';
 import Sidebar from '@/components/layout/Sidebar';
 import { MaterialsProvider } from '@/lib/materials-store';
 
@@ -10,24 +8,20 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-
   return (
     <MaterialsProvider>
-      <div className="flex h-screen overflow-hidden bg-gray-50">
+      <div className="min-h-screen flex bg-[#FFF9FB]">
 
-        {/* SIDEBAR */}
+        {/* Sidebar */}
         <Sidebar />
 
-        {/* MOBILE MENU */}
-        {mobileOpen && (
-          <div className="fixed inset-0 z-50 bg-black/40" onClick={() => setMobileOpen(false)} />
-        )}
+        {/* Conteúdo */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto p-8">
+            {children}
+          </div>
+        </main>
 
-        {/* CONTENT (SÓ UMA VEZ) */}
-        <div className="flex-1 overflow-auto p-6">
-          {children}
-        </div>
       </div>
     </MaterialsProvider>
   );

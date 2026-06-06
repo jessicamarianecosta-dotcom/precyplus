@@ -1,198 +1,190 @@
 'use client';
 
-import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  LayoutDashboard,
+  Boxes,
+  Package,
+  Calculator,
+  TrendingUp,
+  Users,
+  FileText,
+  Settings,
+  LogOut,
+  Receipt,
+} from 'lucide-react';
 
-type Item = {
-  name: string;
-  value: string;
+type MenuItem = {
+  label: string;
+  href: string;
+  icon: any;
+  pro?: boolean;
 };
 
-export default function CustosFixosPage() {
-  const supabase = createClient();
+const menu: MenuItem[] = [
+  {
+    label: 'Dashboard',
+    href: '/dashboard',
+    icon: LayoutDashboard,
+  },
+  {
+    label: 'Materiais',
+    href: '/dashboard/materiais',
+    icon: Boxes,
+  },
+  {
+    label: 'Produtos',
+    href: '/dashboard/produtos',
+    icon: Package,
+  },
+  {
+    label: 'Precificação',
+    href: '/dashboard/precificacao',
+    icon: Calculator,
+  },
+  {
+    label: 'Custos Fixos',
+    href: '/dashboard/custos-fixos',
+    icon: Receipt,
+  },
 
-  const [items, setItems] = useState<Item[]>([
-    { name: 'Aluguel', value: '' },
-    { name: 'Energia', value: '' },
-    { name: 'Água', value: '' },
-    { name: 'Internet', value: '' },
-    { name: 'Funcionários', value: '' },
-    { name: 'Contador', value: '' },
-    { name: 'Softwares', value: '' },
-    { name: 'Impostos', value: '' },
-    { name: 'Marketing', value: '' },
-    { name: 'Combustível', value: '' },
-    { name: 'Manutenção', value: '' },
-    { name: 'Pró-labore', value: '' },
-    { name: 'Depreciação', value: '' },
-  ]);
+  // PRO
+  {
+    label: 'Financeiro',
+    href: '/assinatura',
+    icon: TrendingUp,
+    pro: true,
+  },
+  {
+    label: 'Clientes',
+    href: '/assinatura',
+    icon: Users,
+    pro: true,
+  },
+  {
+    label: 'Orçamentos',
+    href: '/assinatura',
+    icon: FileText,
+    pro: true,
+  },
+];
 
-  const [loading, setLoading] = useState(false);
+export default function Sidebar() {
+  const pathname = usePathname();
+  const router = useRouter();
 
-  function addItem() {
-    setItems([...items, { name: '', value: '' }]);
-  }
+  // 🔥 LIBERADO PARA TESTE (depois troca pelo Supabase plan)
+  const isPro = false;
 
-  function updateItem(index: number, field: keyof Item, value: string) {
-    const newItems = [...items];
-    newItems[index][field] = value;
-    setItems(newItems);
-  }
-
-  function removeItem(index: number) {
-    const newItems = [...items];
-    newItems.splice(index, 1);
-    setItems(newItems);
-  }
-
-  const total = items.reduce(
-    (acc, item) => acc + (Number(item.value) || 0),
-    0
-  );
-
-  async function save() {
-    setLoading(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return;
-
-    await supabase.from('fixed_costs').upsert({
-      user_id: user.id,
-      items,
-      total,
-    });
-
-    alert('Custos salvos com sucesso 💗');
-
-    setLoading(false);
+  function handleProClick() {
+    router.push('/assinatura');
   }
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1 style={{ fontSize: 34, fontWeight: 800 }}>
-        Custos Fixos
-      </h1>
+    <aside className="w-[315px] min-h-screen bg-white border-r border-[#F6DCE7] flex flex-col">
 
-      <p style={{ color: '#666', marginBottom: 20 }}>
-        Adicione todos os custos mensais da sua empresa
-      </p>
+      {/* HEADER */}
+      <div className="h-24 px-6 flex items-center border-b border-[#F6DCE7]">
+        <div className="flex items-center gap-3">
 
-      {/* LISTA DINÂMICA */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-        }}
-      >
-        {items.map((item, index) => (
-          <div
-            key={index}
-            style={{
-              display: 'flex',
-              gap: 10,
-              alignItems: 'center',
-            }}
-          >
-            <input
-              placeholder="Nome do custo"
-              value={item.name}
-              onChange={(e) =>
-                updateItem(index, 'name', e.target.value)
-              }
-              style={{
-                flex: 1,
-                padding: 12,
-                border: '1px solid #ddd',
-                borderRadius: 10,
-              }}
-            />
-
-            <input
-              placeholder="Valor"
-              type="number"
-              value={item.value}
-              onChange={(e) =>
-                updateItem(index, 'value', e.target.value)
-              }
-              style={{
-                width: 140,
-                padding: 12,
-                border: '1px solid #ddd',
-                borderRadius: 10,
-              }}
-            />
-
-            <button
-              onClick={() => removeItem(index)}
-              style={{
-                padding: '10px 14px',
-                background: '#ffeded',
-                border: 'none',
-                borderRadius: 10,
-                cursor: 'pointer',
-              }}
-            >
-              ❌
-            </button>
+          <div className="w-11 h-11 rounded-full border-2 border-pink-300 flex items-center justify-center bg-white">
+            <span className="text-sm font-black text-[#1A1F5E]">
+              P+
+            </span>
           </div>
-        ))}
+
+          <h1 className="text-[22px] font-black text-[#1A1F5E]">
+            Precy<span className="text-pink-500">+</span>
+          </h1>
+
+        </div>
       </div>
 
-      {/* BOTÃO ADD */}
-      <button
-        onClick={addItem}
-        style={{
-          marginTop: 20,
-          padding: '12px 18px',
-          borderRadius: 12,
-          border: 'none',
-          background: '#FF4FA3',
-          color: 'white',
-          fontWeight: 700,
-          cursor: 'pointer',
-        }}
-      >
-        + Adicionar custo
-      </button>
+      {/* MENU */}
+      <div className="flex-1 px-5 py-7">
+        <nav className="space-y-2">
 
-      {/* TOTAL */}
-      <div
-        style={{
-          marginTop: 30,
-          padding: 20,
-          borderRadius: 16,
-          background:
-            'linear-gradient(135deg,#FF4FA3,#FF85C2)',
-          color: 'white',
-        }}
-      >
-        <h3>Total mensal</h3>
-        <h1 style={{ fontSize: 32 }}>
-          R$ {total.toFixed(2)}
-        </h1>
+          {menu.map((item) => {
+            const Icon = item.icon;
+            const active = pathname === item.href;
+
+            // 🔥 BLOQUEIO PRO
+            if (item.pro) {
+              return (
+                <button
+                  key={item.label}
+                  onClick={handleProClick}
+                  className="
+                    w-full flex items-center justify-between
+                    h-14 px-4 rounded-2xl
+                    hover:bg-pink-50 transition-all
+                  "
+                >
+                  <div className="flex items-center gap-4">
+                    <Icon size={21} className="text-gray-400" />
+                    <span className="text-[16px] font-bold text-[#364152]">
+                      {item.label}
+                    </span>
+                  </div>
+
+                  <div className="px-2 py-1 rounded-lg bg-[#FFE7A3] text-[#B66A00] text-xs font-black">
+                    PRO
+                  </div>
+                </button>
+              );
+            }
+
+            // NORMAL
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                className={`
+                  flex items-center justify-between
+                  h-14 px-4 rounded-2xl
+                  transition-all
+                  ${active ? 'bg-pink-50' : 'hover:bg-gray-50'}
+                `}
+              >
+                <div className="flex items-center gap-4">
+                  <Icon
+                    size={21}
+                    className={active ? 'text-pink-500' : 'text-gray-400'}
+                  />
+                  <span
+                    className={`text-[16px] font-bold ${
+                      active ? 'text-pink-500' : 'text-[#364152]'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
+
+        </nav>
       </div>
 
-      {/* SALVAR */}
-      <button
-        onClick={save}
-        disabled={loading}
-        style={{
-          marginTop: 20,
-          padding: '14px 20px',
-          borderRadius: 12,
-          border: 'none',
-          background: '#111',
-          color: 'white',
-          fontWeight: 700,
-          cursor: 'pointer',
-        }}
-      >
-        {loading ? 'Salvando...' : 'Salvar'}
-      </button>
-    </main>
+      {/* FOOTER */}
+      <div className="border-t border-[#F6DCE7] p-5 space-y-2">
+
+        <Link
+          href="/dashboard/configuracoes"
+          className="h-14 px-4 rounded-2xl flex items-center gap-4 bg-pink-500 text-white font-bold"
+        >
+          <Settings size={20} />
+          Configurações
+        </Link>
+
+        <button className="h-14 px-4 rounded-2xl flex items-center gap-4 text-gray-500 hover:bg-gray-50 font-bold w-full">
+          <LogOut size={20} />
+          Sair
+        </button>
+
+      </div>
+
+    </aside>
   );
 }
