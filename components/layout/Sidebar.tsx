@@ -1,206 +1,198 @@
 'use client';
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
-import {
-  LayoutDashboard,
-  Package,
-  ShoppingBag,
-  Calculator,
-  TrendingUp,
-  Users,
-  FileText,
-  Settings,
-  LogOut,
-  ChevronRight,
-  DollarSign
-} from 'lucide-react';
-
+import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
-const NAV = [
-  {
-    href: '/dashboard',
-    icon: LayoutDashboard,
-    label: 'Dashboard',
-  },
-  {
-    href: '/dashboard/materiais',
-    icon: Package,
-    label: 'Materiais',
-  },
-  {
-    href: '/dashboard/produtos',
-    icon: ShoppingBag,
-    label: 'Produtos',
-  },
-  {
-    href: '/dashboard/precificacao',
-    icon: Calculator,
-    label: 'Precificação',
-  },
+type Item = {
+  name: string;
+  value: string;
+};
 
-  // 👇 NOVO MÓDULO ADICIONADO AQUI
-  {
-    href: '/dashboard/custos-fixos',
-    icon: DollarSign,
-    label: 'Custos Fixos',
-  },
+export default function CustosFixosPage() {
+  const supabase = createClient();
 
-  {
-    href: '/dashboard/financeiro',
-    icon: TrendingUp,
-    label: 'Financeiro',
-    pro: true,
-  },
-  {
-    href: '/dashboard/clientes',
-    icon: Users,
-    label: 'Clientes',
-    pro: true,
-  },
-  {
-    href: '/dashboard/orcamentos',
-    icon: FileText,
-    label: 'Orçamentos',
-    pro: true,
-  },
-];
+  const [items, setItems] = useState<Item[]>([
+    { name: 'Aluguel', value: '' },
+    { name: 'Energia', value: '' },
+    { name: 'Água', value: '' },
+    { name: 'Internet', value: '' },
+    { name: 'Funcionários', value: '' },
+    { name: 'Contador', value: '' },
+    { name: 'Softwares', value: '' },
+    { name: 'Impostos', value: '' },
+    { name: 'Marketing', value: '' },
+    { name: 'Combustível', value: '' },
+    { name: 'Manutenção', value: '' },
+    { name: 'Pró-labore', value: '' },
+    { name: 'Depreciação', value: '' },
+  ]);
 
-interface SidebarProps {
-  onClose?: () => void;
-  mobile?: boolean;
-}
+  const [loading, setLoading] = useState(false);
 
-export default function Sidebar({ onClose, mobile }: SidebarProps) {
-  const pathname = usePathname();
-  const router = useRouter();
+  function addItem() {
+    setItems([...items, { name: '', value: '' }]);
+  }
 
-  async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    toast.success('Até logo! 💗');
-    router.push('/login');
-    router.refresh();
+  function updateItem(index: number, field: keyof Item, value: string) {
+    const newItems = [...items];
+    newItems[index][field] = value;
+    setItems(newItems);
+  }
+
+  function removeItem(index: number) {
+    const newItems = [...items];
+    newItems.splice(index, 1);
+    setItems(newItems);
+  }
+
+  const total = items.reduce(
+    (acc, item) => acc + (Number(item.value) || 0),
+    0
+  );
+
+  async function save() {
+    setLoading(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    await supabase.from('fixed_costs').upsert({
+      user_id: user.id,
+      items,
+      total,
+    });
+
+    alert('Custos salvos com sucesso 💗');
+
+    setLoading(false);
   }
 
   return (
-    <aside className="w-64 h-full flex flex-col bg-white border-r border-pink-100">
-      {/* Logo */}
-      <div className="p-5 flex items-center justify-between border-b border-pink-50">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <Image
-            src="/logo.png"
-            alt="Precy+"
-            width={36}
-            height={36}
-            className="rounded-full"
-          />
-          <span className="font-black text-xl" style={{ color: '#1A1F5E' }}>
-            Precy<span style={{ color: '#FF6BAD' }}>+</span>
-          </span>
-        </Link>
+    <main style={{ padding: 40 }}>
+      <h1 style={{ fontSize: 34, fontWeight: 800 }}>
+        Custos Fixos
+      </h1>
 
-        {mobile && (
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+      <p style={{ color: '#666', marginBottom: 20 }}>
+        Adicione todos os custos mensais da sua empresa
+      </p>
+
+      {/* LISTA DINÂMICA */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        {items.map((item, index) => (
+          <div
+            key={index}
+            style={{
+              display: 'flex',
+              gap: 10,
+              alignItems: 'center',
+            }}
           >
-            ✕
-          </button>
-        )}
-      </div>
-
-      {/* NAV */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {NAV.map(({ href, icon: Icon, label, pro }) => {
-          const active =
-            pathname === href ||
-            (href !== '/dashboard' && pathname.startsWith(href));
-
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onClose}
-              className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all group',
-                active
-                  ? 'text-white shadow-sm'
-                  : 'text-gray-600 hover:bg-pink-50 hover:text-pink-600'
-              )}
-              style={
-                active
-                  ? {
-                      background:
-                        'linear-gradient(135deg, #FF6BAD, #FF8DC7)',
-                    }
-                  : {}
+            <input
+              placeholder="Nome do custo"
+              value={item.name}
+              onChange={(e) =>
+                updateItem(index, 'name', e.target.value)
               }
+              style={{
+                flex: 1,
+                padding: 12,
+                border: '1px solid #ddd',
+                borderRadius: 10,
+              }}
+            />
+
+            <input
+              placeholder="Valor"
+              type="number"
+              value={item.value}
+              onChange={(e) =>
+                updateItem(index, 'value', e.target.value)
+              }
+              style={{
+                width: 140,
+                padding: 12,
+                border: '1px solid #ddd',
+                borderRadius: 10,
+              }}
+            />
+
+            <button
+              onClick={() => removeItem(index)}
+              style={{
+                padding: '10px 14px',
+                background: '#ffeded',
+                border: 'none',
+                borderRadius: 10,
+                cursor: 'pointer',
+              }}
             >
-              <Icon
-                size={18}
-                className={
-                  active
-                    ? 'text-white'
-                    : 'text-gray-400 group-hover:text-pink-500'
-                }
-              />
-
-              <span className="flex-1">{label}</span>
-
-              {pro && !active && (
-                <span
-                  className="text-xs font-black px-1.5 py-0.5 rounded-md"
-                  style={{ background: '#FFF3B0', color: '#B45309' }}
-                >
-                  PRO
-                </span>
-              )}
-
-              {active && (
-                <ChevronRight size={14} className="text-white/70" />
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Bottom */}
-      <div className="p-4 border-t border-pink-50 space-y-1">
-        <Link
-          href="/dashboard/configuracoes"
-          className={cn(
-            'flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all group',
-            pathname === '/dashboard/configuracoes'
-              ? 'text-white'
-              : 'text-gray-600 hover:bg-pink-50 hover:text-pink-600'
-          )}
-          style={
-            pathname === '/dashboard/configuracoes'
-              ? {
-                  background:
-                    'linear-gradient(135deg, #FF6BAD, #FF8DC7)',
-                }
-              : {}
-          }
-          onClick={onClose}
-        >
-          <Settings size={18} />
-          Configurações
-        </Link>
-
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-500 hover:bg-red-50 hover:text-red-500 transition-all"
-        >
-          <LogOut size={18} />
-          Sair
-        </button>
+              ❌
+            </button>
+          </div>
+        ))}
       </div>
-    </aside>
+
+      {/* BOTÃO ADD */}
+      <button
+        onClick={addItem}
+        style={{
+          marginTop: 20,
+          padding: '12px 18px',
+          borderRadius: 12,
+          border: 'none',
+          background: '#FF4FA3',
+          color: 'white',
+          fontWeight: 700,
+          cursor: 'pointer',
+        }}
+      >
+        + Adicionar custo
+      </button>
+
+      {/* TOTAL */}
+      <div
+        style={{
+          marginTop: 30,
+          padding: 20,
+          borderRadius: 16,
+          background:
+            'linear-gradient(135deg,#FF4FA3,#FF85C2)',
+          color: 'white',
+        }}
+      >
+        <h3>Total mensal</h3>
+        <h1 style={{ fontSize: 32 }}>
+          R$ {total.toFixed(2)}
+        </h1>
+      </div>
+
+      {/* SALVAR */}
+      <button
+        onClick={save}
+        disabled={loading}
+        style={{
+          marginTop: 20,
+          padding: '14px 20px',
+          borderRadius: 12,
+          border: 'none',
+          background: '#111',
+          color: 'white',
+          fontWeight: 700,
+          cursor: 'pointer',
+        }}
+      >
+        {loading ? 'Salvando...' : 'Salvar'}
+      </button>
+    </main>
   );
 }
