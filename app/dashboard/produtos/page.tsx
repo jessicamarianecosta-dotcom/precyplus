@@ -19,7 +19,6 @@ import {
   Select,
   EmptyState,
   Badge,
-  Textarea,
 } from '@/components/ui';
 
 import {
@@ -597,17 +596,36 @@ export default function ProdutosPage() {
 
           </div>
 
-          <Textarea
-            label="Descrição"
-            value={form.description}
-            onChange={e =>
-              setForm(f => ({
-                ...f,
-                description:
-                  e.target.value,
-              }))
-            }
-          />
+          <div>
+
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              Descrição
+            </label>
+
+            <textarea
+              value={form.description}
+              onChange={e =>
+                setForm(f => ({
+                  ...f,
+                  description:
+                    e.target.value,
+                }))
+              }
+              rows={4}
+              className="
+                w-full
+                rounded-2xl
+                border-2
+                border-gray-100
+                px-4
+                py-3
+                outline-none
+                focus:border-pink-300
+                resize-none
+              "
+            />
+
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
