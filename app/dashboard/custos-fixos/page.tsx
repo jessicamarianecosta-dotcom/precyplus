@@ -1,28 +1,48 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 type Item = {
   name: string;
   value: string;
 };
 
+const STORAGE_KEY = 'precy_fixed_costs';
+
+const DEFAULT_ITEMS: Item[] = [
+  { name: 'Aluguel', value: '' },
+  { name: 'Energia', value: '' },
+  { name: 'Água', value: '' },
+  { name: 'Internet', value: '' },
+  { name: 'Funcionários', value: '' },
+  { name: 'Contador', value: '' },
+  { name: 'Softwares', value: '' },
+  { name: 'Impostos', value: '' },
+  { name: 'Marketing', value: '' },
+  { name: 'Combustível', value: '' },
+  { name: 'Manutenção', value: '' },
+  { name: 'Depreciação', value: '' },
+  { name: 'Pró-labore', value: '' },
+];
+
 export default function CustosFixosPage() {
-  const [items, setItems] = useState<Item[]>([
-    { name: 'Aluguel', value: '' },
-    { name: 'Energia', value: '' },
-    { name: 'Água', value: '' },
-    { name: 'Internet', value: '' },
-    { name: 'Funcionários', value: '' },
-    { name: 'Contador', value: '' },
-    { name: 'Softwares', value: '' },
-    { name: 'Impostos', value: '' },
-    { name: 'Marketing', value: '' },
-    { name: 'Combustível', value: '' },
-    { name: 'Manutenção', value: '' },
-    { name: 'Depreciação', value: '' },
-    { name: 'Pró-labore', value: '' },
-  ]);
+  const [items, setItems] = useState<Item[]>(() => {
+    if (typeof window === 'undefined') {
+      return DEFAULT_ITEMS;
+    }
+
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) as Item[] : DEFAULT_ITEMS;
+    } catch {
+      return DEFAULT_ITEMS;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  }, [items]);
 
   function addItem() {
     setItems([...items, { name: '', value: '' }]);

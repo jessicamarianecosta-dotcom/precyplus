@@ -34,6 +34,9 @@ import type { Pricing } from '@/types';
 const PRICINGS_KEY =
   'precy_pricings';
 
+const FIXED_COSTS_KEY =
+  'precy_fixed_costs';
+
 // DEMO
 const DEMO_PRODUCTS = [
   {
@@ -155,18 +158,64 @@ export default function PrecificacaoPage() {
     useState('');
 
   const [form, setForm] =
-    useState(DEFAULT_FORM);
+    useState(() => {
+      if (typeof window === 'undefined') {
+        return DEFAULT_FORM;
+      }
+
+      try {
+        const saved = localStorage.getItem(FIXED_COSTS_KEY);
+        if (!saved) {
+          return DEFAULT_FORM;
+        }
+
+        const fixedItems = JSON.parse(saved) as { value: string }[];
+        const monthlyTotal = fixedItems.reduce(
+          (sum, item) => sum + (Number(item.value) || 0),
+          0
+        );
+
+        return {
+          ...DEFAULT_FORM,
+          fixed_cost_daily: monthlyTotal / 30,
+        };
+      } catch {
+        return DEFAULT_FORM;
+      }
+    });
 
   const [result, setResult] =
     useState<Partial<Pricing> | null>(
       null
     );
 
+  const [fixedCostMonthly, setFixedCostMonthly] =
+    useState(0);
+
   const [loading, setLoading] =
     useState(false);
 
   const [expandedId, setExpandedId] =
     useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const saved = localStorage.getItem(FIXED_COSTS_KEY);
+      if (!saved) return;
+
+      const fixedItems = JSON.parse(saved) as { value: string }[];
+      const monthlyTotal = fixedItems.reduce(
+        (sum, item) => sum + (Number(item.value) || 0),
+        0
+      );
+
+      setFixedCostMonthly(monthlyTotal);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const set = (
     k: string,
@@ -422,6 +471,20 @@ export default function PrecificacaoPage() {
           </Button>
         }
       />
+
+      {fixedCostMonthly > 0 && (
+        <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4">
+          <p className="text-sm text-gray-500">
+            Custos fixos mensais: <strong>{formatCurrency(fixedCostMonthly)}</strong>
+          </p>
+          <p className="text-sm text-gray-500">
+            Custo fixo diário usado na precificação: <strong>{formatCurrency(fixedCostMonthly / 30)}</strong>
+          </p>
+          <p className="text-xs text-gray-400 mt-2">
+            Esses valores vêm do módulo de custos fixos.
+          </p>
+        </div>
+      )}
 
       {/* BUSCA */}
       <div className="relative mb-6 max-w-sm">
