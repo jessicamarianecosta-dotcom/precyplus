@@ -8,11 +8,6 @@ import {
 } from 'next/navigation';
 
 import {
-  useEffect,
-  useState,
-} from 'react';
-
-import {
   LayoutDashboard,
   Boxes,
   Package,
@@ -24,8 +19,6 @@ import {
   LogOut,
   Receipt,
 } from 'lucide-react';
-
-import { createClient } from '@/lib/supabase/client';
 
 type MenuItem = {
   label: string;
@@ -96,9 +89,6 @@ export default function Sidebar() {
   const router =
     useRouter();
 
-  const supabase =
-    createClient();
-
   // 🔥 FORÇADO PRO
   const isPro = true;
 
@@ -123,10 +113,22 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-[315px] min-h-screen bg-white border-r border-[#F6DCE7] flex flex-col">
+
+    <aside
+      className="
+        w-[85px]
+        md:w-[315px]
+        min-h-screen
+        bg-white
+        border-r
+        border-[#F6DCE7]
+        flex
+        flex-col
+      "
+    >
 
       {/* HEADER */}
-      <div className="h-24 px-6 flex items-center border-b border-[#F6DCE7]">
+      <div className="h-24 px-4 md:px-6 flex items-center justify-center md:justify-start border-b border-[#F6DCE7]">
 
         <div className="flex items-center gap-3">
 
@@ -138,18 +140,21 @@ export default function Sidebar() {
 
           </div>
 
-          <h1 className="text-[22px] font-black text-[#1A1F5E]">
+          <h1 className="hidden md:block text-[22px] font-black text-[#1A1F5E]">
+
             Precy
+
             <span className="text-pink-500">
               +
             </span>
+
           </h1>
 
         </div>
       </div>
 
       {/* MENU */}
-      <div className="flex-1 px-5 py-7">
+      <div className="flex-1 px-2 md:px-5 py-7">
 
         <nav className="space-y-2">
 
@@ -168,15 +173,24 @@ export default function Sidebar() {
             ) {
 
               return (
+
                 <button
                   key={item.label}
                   onClick={() =>
                     handleProClick(item)
                   }
                   className="
-                    w-full flex items-center justify-between
-                    h-14 px-4 rounded-2xl
-                    hover:bg-pink-50 transition-all
+                    w-full
+                    flex
+                    items-center
+                    justify-center
+                    md:justify-between
+                    h-14
+                    px-2
+                    md:px-4
+                    rounded-2xl
+                    hover:bg-pink-50
+                    transition-all
                   "
                 >
 
@@ -187,13 +201,13 @@ export default function Sidebar() {
                       className="text-gray-400"
                     />
 
-                    <span className="text-[16px] font-bold text-[#364152]">
+                    <span className="hidden md:block text-[16px] font-bold text-[#364152]">
                       {item.label}
                     </span>
 
                   </div>
 
-                  <div className="px-2 py-1 rounded-lg bg-[#FFE7A3] text-[#B66A00] text-xs font-black">
+                  <div className="hidden md:block px-2 py-1 rounded-lg bg-[#FFE7A3] text-[#B66A00] text-xs font-black">
                     PRO
                   </div>
 
@@ -203,12 +217,19 @@ export default function Sidebar() {
 
             // 🔓 NORMAL + PRO
             return (
+
               <Link
                 key={item.label}
                 href={item.href}
                 className={`
-                  flex items-center justify-between
-                  h-14 px-4 rounded-2xl
+                  flex
+                  items-center
+                  justify-center
+                  md:justify-between
+                  h-14
+                  px-2
+                  md:px-4
+                  rounded-2xl
                   transition-all
                   ${
                     active
@@ -230,11 +251,17 @@ export default function Sidebar() {
                   />
 
                   <span
-                    className={`text-[16px] font-bold ${
-                      active
-                        ? 'text-pink-500'
-                        : 'text-[#364152]'
-                    }`}
+                    className={`
+                      hidden
+                      md:block
+                      text-[16px]
+                      font-bold
+                      ${
+                        active
+                          ? 'text-pink-500'
+                          : 'text-[#364152]'
+                      }
+                    `}
                   >
                     {item.label}
                   </span>
@@ -242,9 +269,23 @@ export default function Sidebar() {
                 </div>
 
                 {item.pro && (
-                  <div className="px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-black">
+
+                  <div
+                    className="
+                      hidden
+                      md:block
+                      px-2
+                      py-1
+                      rounded-lg
+                      bg-emerald-100
+                      text-emerald-700
+                      text-xs
+                      font-black
+                    "
+                  >
                     PRO
                   </div>
+
                 )}
 
               </Link>
@@ -255,24 +296,57 @@ export default function Sidebar() {
       </div>
 
       {/* FOOTER */}
-      <div className="border-t border-[#F6DCE7] p-5 space-y-2">
+      <div className="border-t border-[#F6DCE7] p-2 md:p-5 space-y-2">
 
         <Link
           href="/dashboard/configuracoes"
-          className="h-14 px-4 rounded-2xl flex items-center gap-4 bg-pink-500 text-white font-bold"
+          className="
+            h-14
+            px-2
+            md:px-4
+            rounded-2xl
+            flex
+            items-center
+            justify-center
+            md:justify-start
+            gap-4
+            bg-pink-500
+            text-white
+            font-bold
+          "
         >
 
           <Settings size={20} />
 
-          Configurações
+          <span className="hidden md:block">
+            Configurações
+          </span>
 
         </Link>
 
-        <button className="h-14 px-4 rounded-2xl flex items-center gap-4 text-gray-500 hover:bg-gray-50 font-bold w-full">
+        <button
+          className="
+            h-14
+            px-2
+            md:px-4
+            rounded-2xl
+            flex
+            items-center
+            justify-center
+            md:justify-start
+            gap-4
+            text-gray-500
+            hover:bg-gray-50
+            font-bold
+            w-full
+          "
+        >
 
           <LogOut size={20} />
 
-          Sair
+          <span className="hidden md:block">
+            Sair
+          </span>
 
         </button>
 
