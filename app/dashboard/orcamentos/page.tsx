@@ -21,7 +21,6 @@ import {
   Button,
   Modal,
   Input,
-  Select,
   Textarea,
   EmptyState,
   Badge,
@@ -38,7 +37,7 @@ import type {
   Budget,
   BudgetItem,
   Client,
-  Product,
+  Pricing,
 } from '@/types';
 
 const STATUS_MAP = {
@@ -74,8 +73,8 @@ export default function OrcamentosPage() {
   const [clients, setClients] =
     useState<Client[]>([]);
 
-  const [products, setProducts] =
-    useState<Product[]>([]);
+  const [pricings, setPricings] =
+    useState<Pricing[]>([]);
 
   const [editingId, setEditingId] =
     useState<string | null>(null);
@@ -86,11 +85,18 @@ export default function OrcamentosPage() {
   const [modalOpen, setModalOpen] =
     useState(false);
 
+  const [newClientModalOpen, setNewClientModalOpen] =
+    useState(false);
+
+  const [newProductModalOpen, setNewProductModalOpen] =
+    useState(false);
+
   const [loading, setLoading] =
     useState(false);
 
   const [form, setForm] =
     useState({
+      client_id: '',
       client_name: '',
       notes: '',
       valid_until: '',
@@ -105,6 +111,24 @@ export default function OrcamentosPage() {
         total: 0,
       },
     ]);
+
+  const [newClientForm, setNewClientForm] =
+    useState({
+      name: '',
+      whatsapp: '',
+      email: '',
+      observations: '',
+    });
+
+  const [newProductForm, setNewProductForm] =
+    useState({
+      name: '',
+      description: '',
+      quantity: 1,
+      unit_price: 0,
+      observations: '',
+      saveAsProduct: false,
+    });
 
   useEffect(() => {
     loadData();
@@ -131,9 +155,9 @@ export default function OrcamentosPage() {
       .select('*');
 
     const {
-      data: productsData,
+      data: pricingsData,
     } = await supabase
-      .from('products')
+      .from('pricings')
       .select('*');
 
     setBudgets(
@@ -144,8 +168,8 @@ export default function OrcamentosPage() {
       clientsData || []
     );
 
-    setProducts(
-      productsData || []
+    setPricings(
+      pricingsData || []
     );
   }
 
@@ -163,26 +187,21 @@ export default function OrcamentosPage() {
     0
   );
 
-  const clientOptions = [
-    { value: '', label: 'Selecione um cliente' },
-    ...clients.map(client => ({
-      value: client.name,
-      label: client.name,
-    })),
-  ];
+  const selectedClient = clients.find(
+    client => client.id === form.client_id
+  );
 
-  const productOptions = [
-    { value: '', label: 'Selecione um produto' },
-    ...products.map(product => ({
-      value: product.name,
-      label: product.name,
-    })),
-  ];
+  const clientOptions = clients.map((client) => client.name);
+
+  const pricingOptions = pricings.map(
+    (pricing) => pricing.product_name
+  );
 
   function resetForm() {
     setEditingId(null);
 
     setForm({
+      client_id: '',
       client_name: '',
       notes: '',
       valid_until: '',
@@ -255,15 +274,21 @@ export default function OrcamentosPage() {
     productName: string
   ) {
 
-    const product =
-      products.find(
-        p =>
-          p.name ===
-          productName
-      );
+    const pricing = pricings.find(
+      p => p.product_name === productName
+    );
 
-    if (!product)
+    if (!pricing)
       return;
+
+    const selectedPrice =
+      Number(
+        pricing.recommended_price ||
+        pricing.premium_price ||
+        pricing.min_price ||
+        pricing.total_cost ||
+        0
+      );
 
     setItems(prev =>
       prev.map((item, i) => {
@@ -271,13 +296,12 @@ export default function OrcamentosPage() {
         if (i !== idx)
           return item;
 
-        const selectedPrice =
-          Number(product.sale_price ?? item.unit_price ?? 0);
-
         return {
           ...item,
+          pricing_id:
+            pricing.id,
           description:
-            product.name,
+            pricing.product_name,
           unit_price:
             selectedPrice,
           total:
@@ -309,6 +333,9 @@ export default function OrcamentosPage() {
         .from('budgets')
         .update({
 
+          client_id:
+            form.client_id || null,
+
           client_name:
             form.client_name,
 
@@ -338,6 +365,9 @@ export default function OrcamentosPage() {
         .from('budgets')
         .insert({
 
+          client_id:
+            form.client_id || null,
+
           client_name:
             form.client_name,
 
@@ -362,6 +392,7 @@ export default function OrcamentosPage() {
     setEditingId(null);
 
     setForm({
+      client_id: '',
       client_name: '',
       notes: '',
       valid_until: '',
@@ -392,6 +423,9 @@ export default function OrcamentosPage() {
     );
 
     setForm({
+      client_id:
+        budget.client_id || '',
+
       client_name:
         budget.client_name,
 
@@ -514,6 +548,84 @@ export default function OrcamentosPage() {
     );
   }
 
+  async function handleCreateClient() {
+    if (!newClientForm.name.trim()) {
+      toast.error('Informe o nome do cliente');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('clients')
+      .insert({
+        name: newClientForm.name,
+        whatsapp: newClientForm.whatsapp,
+        email: newClientForm.email,
+        observations: newClientForm.observations,
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      toast.error('Falha ao criar cliente');
+      return;
+    }
+
+    setClients(prev => [data, ...prev]);
+    setForm({
+      ...form,
+      client_id: data.id,
+      client_name: data.name,
+    });
+    setNewClientForm({
+      name: '',
+      whatsapp: '',
+      email: '',
+      observations: '',
+    });
+    setNewClientModalOpen(false);
+    toast.success('Cliente criado e selecionado!');
+  }
+
+  async function handleAddCustomProduct() {
+    if (!newProductForm.name.trim()) {
+      toast.error('Informe o nome do produto');
+      return;
+    }
+
+    const newItem: BudgetItem = {
+      description: newProductForm.name,
+      quantity: newProductForm.quantity,
+      unit_price: newProductForm.unit_price,
+      total: Number(newProductForm.quantity) * Number(newProductForm.unit_price),
+    };
+
+    setItems(prev => [...prev, newItem]);
+
+    if (newProductForm.saveAsProduct) {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        await supabase.from('products').insert({
+          user_id: userData.user.id,
+          name: newProductForm.name,
+          category: 'Outros',
+          description: newProductForm.description,
+          unit: 'unidade',
+        });
+      }
+    }
+
+    setNewProductForm({
+      name: '',
+      description: '',
+      quantity: 1,
+      unit_price: 0,
+      observations: '',
+      saveAsProduct: false,
+    });
+    setNewProductModalOpen(false);
+    toast.success('Produto personalizado adicionado!');
+  }
+
   return (
     <div>
       <PageHeader
@@ -612,13 +724,51 @@ export default function OrcamentosPage() {
         size="xl"
       >
         <div className="space-y-6">
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Select
-              label="Cliente *"
-              options={clientOptions}
-              value={form.client_name}
-              onChange={e => setForm({ ...form, client_name: e.target.value })}
-            />
+          <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr]">
+            <div className="space-y-2">
+              <Input
+                label="Cliente *"
+                value={form.client_name}
+                onChange={e => {
+                  const value = e.target.value;
+                  const matched = clients.find(c => c.name === value);
+                  setForm({
+                    ...form,
+                    client_name: value,
+                    client_id: matched ? matched.id : '',
+                  });
+                }}
+                placeholder="Buscar cliente existente"
+                list="client-options"
+              />
+              <datalist id="client-options">
+                {clientOptions.map(name => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setNewClientModalOpen(true)}
+                >
+                  + Novo Cliente
+                </Button>
+              </div>
+              {selectedClient && (
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3 text-sm text-gray-600">
+                  {selectedClient.whatsapp && (
+                    <div>WhatsApp: {selectedClient.whatsapp}</div>
+                  )}
+                  {selectedClient.email && (
+                    <div>Email: {selectedClient.email}</div>
+                  )}
+                  {selectedClient.observations && (
+                    <div>Obs: {selectedClient.observations}</div>
+                  )}
+                </div>
+              )}
+            </div>
             <Input
               label="Validade"
               type="date"
@@ -642,17 +792,27 @@ export default function OrcamentosPage() {
           />
 
           <div className="space-y-4">
+            <datalist id="product-options">
+              {pricingOptions.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+
             {items.map((item, idx) => (
               <div
                 key={idx}
                 className="grid gap-3 md:grid-cols-[1.8fr_0.8fr_0.9fr_0.9fr_auto] items-end"
               >
                 <div>
-                  <Select
+                  <Input
                     label="Produto"
-                    options={productOptions}
+                    list="product-options"
                     value={item.description}
-                    onChange={e => handleProductSelect(idx, e.target.value)}
+                    onChange={e => {
+                      updateItem(idx, 'description', e.target.value);
+                      handleProductSelect(idx, e.target.value);
+                    }}
+                    placeholder="Buscar produto existente"
                   />
                 </div>
                 <Input
@@ -688,9 +848,14 @@ export default function OrcamentosPage() {
             ))}
           </div>
 
-          <Button variant="secondary" icon={Plus} onClick={handleAddItem}>
-            Adicionar item
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="secondary" icon={Plus} onClick={handleAddItem}>
+              Adicionar item
+            </Button>
+            <Button variant="secondary" onClick={() => setNewProductModalOpen(true)}>
+              + Produto Personalizado
+            </Button>
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 mt-6">
@@ -699,6 +864,108 @@ export default function OrcamentosPage() {
           </Button>
           <Button loading={loading} onClick={handleSave}>
             Salvar orçamento
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={newClientModalOpen}
+        onClose={() => setNewClientModalOpen(false)}
+        title="Novo cliente"
+        size="md"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nome"
+            value={newClientForm.name}
+            onChange={e => setNewClientForm({ ...newClientForm, name: e.target.value })}
+          />
+          <Input
+            label="WhatsApp"
+            value={newClientForm.whatsapp}
+            onChange={e => setNewClientForm({ ...newClientForm, whatsapp: e.target.value })}
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={newClientForm.email}
+            onChange={e => setNewClientForm({ ...newClientForm, email: e.target.value })}
+          />
+          <Textarea
+            label="Observações"
+            value={newClientForm.observations}
+            onChange={e => setNewClientForm({ ...newClientForm, observations: e.target.value })}
+            rows={3}
+          />
+        </div>
+        <div className="flex justify-end gap-3 mt-6">
+          <Button variant="ghost" onClick={() => setNewClientModalOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleCreateClient}>
+            Criar cliente
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={newProductModalOpen}
+        onClose={() => setNewProductModalOpen(false)}
+        title="Produto personalizado"
+        size="md"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nome do produto"
+            value={newProductForm.name}
+            onChange={e => setNewProductForm({ ...newProductForm, name: e.target.value })}
+          />
+          <Input
+            label="Quantidade"
+            type="number"
+            min={1}
+            value={newProductForm.quantity}
+            onChange={e => setNewProductForm({ ...newProductForm, quantity: Number(e.target.value) })}
+          />
+          <Input
+            label="Valor unitário"
+            type="number"
+            min={0}
+            step={0.01}
+            value={newProductForm.unit_price}
+            onChange={e => setNewProductForm({ ...newProductForm, unit_price: Number(e.target.value) })}
+          />
+          <Input
+            label="Total"
+            type="text"
+            value={formatCurrency(newProductForm.quantity * newProductForm.unit_price)}
+            disabled
+          />
+          <Textarea
+            label="Descrição"
+            value={newProductForm.description}
+            onChange={e => setNewProductForm({ ...newProductForm, description: e.target.value })}
+            rows={3}
+          />
+          <div className="flex items-center gap-3">
+            <input
+              id="save-product"
+              type="checkbox"
+              checked={newProductForm.saveAsProduct}
+              onChange={e => setNewProductForm({ ...newProductForm, saveAsProduct: e.target.checked })}
+              className="w-4 h-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500"
+            />
+            <label htmlFor="save-product" className="text-sm text-gray-600 font-semibold">
+              Salvar como produto definitivo
+            </label>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 mt-6">
+          <Button variant="ghost" onClick={() => setNewProductModalOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleAddCustomProduct}>
+            Adicionar produto
           </Button>
         </div>
       </Modal>
