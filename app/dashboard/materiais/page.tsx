@@ -119,19 +119,55 @@ export default function MateriaisPage() {
     setAdjustQty('');
   }
 
-  return (
-    <div>
-      <PageHeader
-        title="Materiais & Estoque"
-        subtitle="Gerencie seus materiais. O estoque baixa automaticamente quando você cria produtos."
-        action={
-            <div className="flex gap-2">
-            <Button variant="secondary" icon={History} size="sm" onClick={() => setHistoryOpen(true)}>Histórico</Button>
-            <Button variant="secondary" size="sm" onClick={async () => { setLoading(true); try { await (window as any).__materialSync && await (window as any).__materialSync(); } catch (e) { /* noop */ } finally { setLoading(false); } }}>Sincronizar pendentes</Button>
-            <Button icon={Plus} onClick={openNew}>Novo material</Button>
-          </div>
-        }
-      />
+ return (
+  <div className="space-y-4 sm:space-y-0">
+    <PageHeader
+      title="Materiais & Estoque"
+      subtitle="Gerencie seus materiais. O estoque baixa automaticamente quando você cria produtos."
+      action={
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+
+          <Button
+            variant="secondary"
+            icon={History}
+            size="sm"
+            className="flex-1 sm:flex-none"
+            onClick={() => setHistoryOpen(true)}
+          >
+            Histórico
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            className="flex-1 sm:flex-none"
+            onClick={async () => {
+              setLoading(true);
+
+              try {
+                await (window as any).__materialSync &&
+                  await (window as any).__materialSync();
+              } catch (e) {
+                /* noop */
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            Sincronizar pendentes
+          </Button>
+
+          <Button
+            icon={Plus}
+            onClick={openNew}
+            className="flex-1 sm:flex-none"
+          >
+            Novo material
+          </Button>
+
+        </div>
+      }
+    />
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -167,7 +203,11 @@ export default function MateriaisPage() {
         <div className="bg-white rounded-2xl border border-gray-100">
           <EmptyState icon="📦" title="Nenhum material encontrado"
             description="Cadastre seus materiais para começar a controlar o estoque automaticamente."
-            action={<Button icon={Plus} onClick={openNew}>Cadastrar material</Button>} />
+            action={<Button
+  icon={Plus}
+  onClick={openNew}
+  className="w-full sm:w-auto"
+>Cadastrar material</Button>} />
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
