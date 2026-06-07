@@ -70,12 +70,14 @@ export default function DashboardPage() {
       const userId =
         authData.user?.id;
 
-      if (!userId) return;
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
 
       setUserName(
-        authData.user.user_metadata
-          ?.name ||
-        authData.user.email?.split('@')[0] ||
+        authData.user?.user_metadata?.name ||
+        authData.user?.email?.split('@')[0] ||
         'Usuário'
       );
 
@@ -260,17 +262,19 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
 
+      {/* HEADER */}
+
       <div>
         <h1 className="text-3xl font-black text-[#1A1F5E]">
-          {getGreeting()},
-          {' '}
-          {userName} 👋
+          {getGreeting()}, {userName} 👋
         </h1>
 
         <p className="text-gray-500 mt-1 font-medium">
           Aqui está o resumo do seu negócio.
         </p>
       </div>
+
+      {/* CARDS */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
 
@@ -311,6 +315,8 @@ export default function DashboardPage() {
           );
         })}
       </div>
+
+      {/* FINANCEIRO */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -377,6 +383,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* ALERTAS */}
 
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
 
