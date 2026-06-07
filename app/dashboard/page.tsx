@@ -12,6 +12,21 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+} from 'recharts';
+
 import { createClient } from '@/lib/supabase/client';
 
 import { formatCurrency } from '@/lib/utils';
@@ -84,10 +99,6 @@ export default function DashboardPage() {
         'Usuário'
       );
 
-      // ======================
-      // MATERIAIS
-      // ======================
-
       const {
         data: materials,
       } = await supabase
@@ -108,20 +119,12 @@ export default function DashboardPage() {
             Number(m.available_qty) <= 0
         ).length || 0;
 
-      // ======================
-      // PRECIFICAÇÕES
-      // ======================
-
       const {
         data: pricings,
       } = await supabase
         .from('pricings')
         .select('*')
         .eq('user_id', userId);
-
-      // ======================
-      // CLIENTES
-      // ======================
 
       const {
         data: clients,
@@ -130,20 +133,12 @@ export default function DashboardPage() {
         .select('*')
         .eq('user_id', userId);
 
-      // ======================
-      // ORÇAMENTOS
-      // ======================
-
       const {
         data: quotes,
       } = await supabase
         .from('quotes')
         .select('*')
         .eq('user_id', userId);
-
-      // ======================
-      // FINANCEIRO
-      // ======================
 
       const {
         data: financial,
@@ -262,6 +257,52 @@ export default function DashboardPage() {
     },
   ];
 
+  const financeData = [
+    {
+      name: 'Faturamento',
+      value: stats.totalRevenue,
+    },
+    {
+      name: 'Despesas',
+      value: stats.totalExpenses,
+    },
+    {
+      name: 'Lucro',
+      value: stats.estimatedProfit,
+    },
+  ];
+
+  const stockData = [
+    {
+      name: 'Baixo',
+      value: stats.lowStock,
+    },
+    {
+      name: 'Crítico',
+      value: stats.criticalStock,
+    },
+    {
+      name: 'Normal',
+      value:
+        stats.totalMaterials -
+        stats.lowStock -
+        stats.criticalStock,
+    },
+  ];
+
+  const quotesData = [
+    {
+      name: 'Aprovados',
+      value: stats.approvedQuotes,
+    },
+    {
+      name: 'Pendentes',
+      value:
+        stats.totalQuotes -
+        stats.approvedQuotes,
+    },
+  ];
+
   return (
     <div className="space-y-6">
 
@@ -318,7 +359,6 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
-
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
               <DollarSign className="text-green-600" />
@@ -339,7 +379,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
-
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
               <TrendingUp className="text-red-500" />
@@ -360,7 +399,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
-
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
               <DollarSign className="text-blue-600" />
@@ -378,6 +416,85 @@ export default function DashboardPage() {
               </h2>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* GRÁFICOS */}
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h2 className="text-lg font-black text-[#1A1F5E] mb-5">
+            Financeiro
+          </h2>
+
+          <ResponsiveContainer
+            width="100%"
+            height={300}
+          >
+            <BarChart data={financeData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+
+              <Bar
+                dataKey="value"
+                radius={[10, 10, 0, 0]}
+                fill="#ec4899"
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h2 className="text-lg font-black text-[#1A1F5E] mb-5">
+            Orçamentos
+          </h2>
+
+          <ResponsiveContainer
+            width="100%"
+            height={300}
+          >
+            <PieChart>
+              <Pie
+                data={quotesData}
+                dataKey="value"
+                outerRadius={100}
+                label
+              >
+                <Cell fill="#22c55e" />
+                <Cell fill="#facc15" />
+              </Pie>
+
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 xl:col-span-2">
+          <h2 className="text-lg font-black text-[#1A1F5E] mb-5">
+            Estoque
+          </h2>
+
+          <ResponsiveContainer
+            width="100%"
+            height={300}
+          >
+            <LineChart data={stockData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="#ec4899"
+                strokeWidth={4}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
