@@ -181,11 +181,14 @@ export default function DashboardPage() {
     new Date().getHours();
 
   const greeting =
-    hour < 12
+    hour >= 5 && hour < 12
       ? 'Bom dia'
-      : hour < 18
+      : hour >= 12 && hour < 18
       ? 'Boa tarde'
       : 'Boa noite';
+
+  const displayName =
+    userName || 'Usuário';
 
   const currentMonth =
     MONTHS[
@@ -209,11 +212,7 @@ export default function DashboardPage() {
           }}
         >
 
-          {greeting}
-          {userName
-            ? `, ${userName}`
-            : ''}
-          ! 👋
+          {greeting}, {displayName} ! 👋
 
         </h1>
 
