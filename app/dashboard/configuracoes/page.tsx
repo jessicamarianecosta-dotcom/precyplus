@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   Save,
@@ -20,6 +20,8 @@ import {
   Select,
 } from '@/components/ui';
 
+import { createClient } from '@/lib/supabase/client';
+import { applyTheme } from '@/lib/theme-provider';
 import { usePlan } from '@/hooks/usePlan';
 
 const STATES = [
@@ -54,6 +56,11 @@ export default function ConfiguracoesPage() {
     openPortal,
   } = usePlan();
 
+  const supabase = useMemo(
+    () => createClient(),
+    []
+  );
+
   const [empresa, setEmpresa] =
     useState({
       name: '',
@@ -62,6 +69,7 @@ export default function ConfiguracoesPage() {
       instagram: '',
       city: '',
       state: 'PR',
+      logo_url: '',
 
       primary_color: '#FF4FA3',
       secondary_color: '#1A1F5E',
@@ -79,17 +87,62 @@ export default function ConfiguracoesPage() {
     });
 
   async function handleSave() {
-
     setSaving(true);
 
-    await new Promise((r) =>
-      setTimeout(r, 500)
-    );
+    const theme = {
+      primary: empresa.primary_color,
+      secondary: empresa.secondary_color,
+      logo: empresa.logo_url,
+    };
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(
+        'precy_theme',
+        JSON.stringify(theme)
+      );
+      applyTheme(theme);
+    }
+
+    const { data: userData } =
+      await supabase.auth.getUser();
+
+    if (userData.user) {
+      await supabase.from('companies').upsert(
+        {
+          user_id: userData.user.id,
+          name: empresa.name,
+          owner_name: empresa.owner,
+          whatsapp: empresa.whatsapp,
+          instagram: empresa.instagram,
+          city: empresa.city,
+          state: empresa.state,
+          logo_url: empresa.logo_url,
+        },
+        { onConflict: 'user_id' }
+      );
+
+      await supabase.from('user_settings').upsert(
+        {
+          user_id: userData.user.id,
+          work_hours_day: financeiro.work_hours_day,
+          work_days_month: financeiro.work_days_month,
+          profit_goal: financeiro.profit_goal,
+          default_margin:
+            financeiro.default_margin,
+          default_commission:
+            financeiro.default_commission,
+          default_waste:
+            financeiro.default_waste,
+          hourly_rate:
+            financeiro.hourly_rate,
+        },
+        { onConflict: 'user_id' }
+      );
+    }
 
     toast.success(
       'Configurações salvas! ✅'
     );
-
     setSaving(false);
   }
 
@@ -101,6 +154,67 @@ export default function ConfiguracoesPage() {
 
     setPortalLoading(false);
   }
+
+  useEffect(() => {
+    async function loadSettings() {
+      const { data: userData } =
+        await supabase.auth.getUser();
+
+      if (!userData.user) return;
+
+      const { data: company } =
+        await supabase
+          .from('companies')
+          .select(
+            'name, owner_name, whatsapp, instagram, city, state, logo_url'
+          )
+          .eq('user_id', userData.user.id)
+          .single();
+
+      if (company) {
+        setEmpresa((f) => ({
+          ...f,
+          name: company.name || '',
+          owner: company.owner_name || '',
+          whatsapp: company.whatsapp || '',
+          instagram: company.instagram || '',
+          city: company.city || '',
+          state: company.state || 'PR',
+          logo_url: company.logo_url || '',
+        }));
+      }
+
+      const { data: settings } =
+        await supabase
+          .from('user_settings')
+          .select(
+            'work_hours_day, work_days_month, profit_goal, default_margin, default_commission, default_waste, hourly_rate'
+          )
+          .eq('user_id', userData.user.id)
+          .single();
+
+      if (settings) {
+        setFinanceiro({
+          work_hours_day:
+            Number(settings.work_hours_day) || 8,
+          work_days_month:
+            Number(settings.work_days_month) || 22,
+          profit_goal:
+            Number(settings.profit_goal) || 40,
+          default_margin:
+            Number(settings.default_margin) || 40,
+          default_commission:
+            Number(settings.default_commission) || 5,
+          default_waste:
+            Number(settings.default_waste) || 5,
+          hourly_rate:
+            Number(settings.hourly_rate) || 15,
+        });
+      }
+    }
+
+    loadSettings();
+  }, [supabase]);
 
   const tabs = [
     {
