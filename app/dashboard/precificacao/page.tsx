@@ -443,16 +443,30 @@ export default function PrecificacaoPage() {
 
   const filtered = pricings.filter(item => item.product_name.toLowerCase().includes(search.toLowerCase()));
 
-  const suggestions = result ? marginOptions.map(margin => {
-    const price =
-  margin >= 100
-    ? 0
-    : result.total_cost
-      ? result.total_cost /
-        (1 - margin / 100)
-      : 0;
-    return { margin, price, profit: price - (result.total_cost || 0) };
-  }) : [];
+  const suggestions = result
+  ? marginOptions.map(margin => {
+
+      const price =
+        margin >= 100
+          ? (result.total_cost || 0) * 2
+          : result.total_cost
+            ? result.total_cost /
+              (1 - margin / 100)
+            : 0;
+
+      return {
+
+        margin,
+
+        price,
+
+        profit:
+          price -
+          (result.total_cost || 0),
+      };
+
+    })
+  : [];
 
   return (
     <div>
