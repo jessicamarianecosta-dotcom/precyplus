@@ -9,9 +9,7 @@ import {
   useCallback,
 } from 'react';
 
-import {
-  createClient,
-} from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 
 import type {
   Material,
@@ -19,11 +17,8 @@ import type {
 } from '@/types';
 
 interface MaterialsContextType {
-
   materials: Material[];
-
   movements: StockMovement[];
-
   loading: boolean;
 
   syncPendingMaterials: () => Promise<void>;
@@ -70,9 +65,7 @@ interface MaterialsContextType {
 }
 
 const MaterialsContext =
-  createContext<MaterialsContextType | null>(
-    null
-  );
+  createContext<MaterialsContextType | null>(null);
 
 export function MaterialsProvider({
   children,
@@ -80,8 +73,7 @@ export function MaterialsProvider({
   children: ReactNode;
 }) {
 
-  const supabase =
-    createClient();
+  const supabase = createClient();
 
   const [materials, setMaterials] =
     useState<Material[]>([]);
@@ -92,69 +84,119 @@ export function MaterialsProvider({
   const [loading, setLoading] =
     useState(true);
 
-  const PENDING_KEY = 'precy_pending_materials';
+  const PENDING_KEY =
+    'precy_pending_materials';
 
   useEffect(() => {
-    reloadMaterials();
-    loadMovements();
-    // try to sync any locally saved pending materials
-    (async () => {
-      await new Promise(r => setTimeout(r, 500));
-      try { await syncPendingMaterials(); } catch (e) { /* ignore */ }
-    })();
-
-    const _int = setInterval(() => {
-      syncPendingMaterials();
-    }, 1000 * 60 * 2); // every 2 minutes
-
-    return () => clearInterval(_int);
+    init();
   }, []);
+
+  async function init() {
+    setLoading(true);
+
+    try {
+      await syncPendingMaterials();
+      await reloadMaterials();
+      await loadMovements();
+    } catch (error) {
+      console.error(
+        'Erro ao iniciar materiais:',
+        error
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function reloadMaterials() {
 
-    const {
-      data,
-    } = await supabase
-      .from('materials')
-      .select('*')
-      .order(
-        'created_at',
-        {
-          ascending: false,
-        }
+    try {
+
+      const {
+        data: authData,
+      } = await supabase.auth.getUser();
+
+      if (!authData.user) {
+        setMaterials([]);
+        return;
+      }
+
+      const {
+        data,
+        error,
+      } = await supabase
+        .from('materials')
+        .select('*')
+        .eq(
+          'user_id',
+          authData.user.id
+        )
+        .order(
+          'created_at',
+          {
+            ascending: false,
+          }
+        );
+
+      if (error) {
+        console.error(
+          'Erro ao carregar materiais:',
+          error
+        );
+        return;
+      }
+
+      setMaterials(data || []);
+
+    } catch (error) {
+
+      console.error(
+        'Erro reloadMaterials:',
+        error
       );
-
-    setMaterials(
-      data || []
-    );
-
-    setLoading(false);
+    }
   }
 
   async function loadMovements() {
 
-    const {
-      data,
-    } = await supabase
-      .from('stock_movements')
-      .select('*')
-      .order(
-        'created_at',
-        {
-          ascending: false,
-        }
-      );
+    try {
 
-    setMovements(
-      data || []
-    );
+      const {
+        data,
+        error,
+      } = await supabase
+        .from('stock_movements')
+        .select('*')
+        .order(
+          'created_at',
+          {
+            ascending: false,
+          }
+        );
+
+      if (error) {
+        console.error(
+          'Erro ao carregar movimentações:',
+          error
+        );
+        return;
+      }
+
+      setMovements(data || []);
+
+    } catch (error) {
+
+      console.error(
+        'Erro loadMovements:',
+        error
+      );
+    }
   }
 
   function calcUnitCost(
     paid: number,
     qty: number
   ) {
-
     return qty > 0
       ? paid / qty
       : 0;
@@ -170,29 +212,29 @@ export function MaterialsProvider({
     reason: string
   ) {
 
-    await supabase
-      .from(
-        'stock_movements'
-      )
-      .insert({
+    try {
 
-        material_id:
-          material.id,
+      await supabase
+        .from('stock_movements')
+        .insert({
+          material_id: material.id,
+          material_name: material.name,
+          quantity,
+          type,
+          reason,
+        });
 
-        material_name:
-          material.name,
+      await loadMovements();
 
-        quantity,
+    } catch (error) {
 
-        type,
-
-        reason,
-      });
-
-    loadMovements();
+      console.error(
+        'Erro ao adicionar movimentação:',
+        error
+      );
+    }
   }
 
-  // ADD
   const addMaterial =
     useCallback(
       async (
@@ -206,120 +248,163 @@ export function MaterialsProvider({
       ) => {
 
         const {
-          data: auth,
-        } =
-          await supabase.auth.getUser();
+          data: authData,
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (
+          authError ||
+          !authData.user
+        ) {
+          throw new Error(
+            'Usuário não autenticado'
+          );
+        }
 
         const unit_cost =
           calcUnitCost(
-            data.paid_value,
-            data.purchased_qty
+            Number(data.paid_value),
+            Number(data.purchased_qty)
           );
 
-        try {
-          const { data: inserted, error } = await supabase
-            .from('materials')
-            .insert({
-              ...data,
-              user_id: auth.user?.id,
-              unit_cost,
-              available_qty: data.available_qty ?? data.purchased_qty,
-            })
-            .select()
-            .single();
+        const payload = {
+          name: data.name,
+          category: data.category,
+          purchased_qty:
+            Number(data.purchased_qty),
+          unit: data.unit,
+          paid_value:
+            Number(data.paid_value),
+          available_qty:
+            Number(
+              data.available_qty ??
+              data.purchased_qty
+            ),
+          min_stock:
+            Number(data.min_stock),
+          observations:
+            data.observations || '',
+          unit_cost,
+          user_id:
+            authData.user.id,
+        };
 
-          if (error) throw error;
+        const {
+          data: inserted,
+          error,
+        } = await supabase
+          .from('materials')
+          .insert(payload)
+          .select()
+          .single();
 
-          await reloadMaterials();
-        } catch (err) {
-          // Fallback: save locally to be synced later
-          try {
-            const id = (globalThis.crypto && (globalThis.crypto as any).randomUUID)
-              ? (globalThis.crypto as any).randomUUID()
-              : String(Date.now());
-
-            const pendingItem: Material = {
-              id,
-              user_id: auth.user?.id || null,
-              name: data.name,
-              category: data.category,
-              purchased_qty: Number(data.purchased_qty) || 0,
-              unit: data.unit,
-              paid_value: Number(data.paid_value) || 0,
-              available_qty: Number(data.available_qty ?? data.purchased_qty) || 0,
-              min_stock: Number(data.min_stock) || 0,
-              observations: data.observations || '',
-              unit_cost: unit_cost,
-              created_at: new Date().toISOString(),
-            } as Material;
-
-            const raw = localStorage.getItem(PENDING_KEY);
-            const list: Material[] = raw ? JSON.parse(raw) : [];
-            list.unshift(pendingItem);
-            localStorage.setItem(PENDING_KEY, JSON.stringify(list));
-
-            // show in UI immediately
-            setMaterials(prev => [pendingItem, ...prev]);
-          } catch (localErr) {
-            console.error('Failed to save pending material locally', localErr);
-            throw err;
-          }
+        if (error) {
+          console.error(
+            'Erro ao salvar material:',
+            error
+          );
+          throw error;
         }
+
+        setMaterials(prev => [
+          inserted,
+          ...prev,
+        ]);
+
+        await reloadMaterials();
       },
-      []
+      [supabase]
     );
 
-  // Try to sync pending materials saved in localStorage to Supabase
   async function syncPendingMaterials() {
+
     try {
-      const raw = localStorage.getItem(PENDING_KEY);
+
+      const raw =
+        localStorage.getItem(
+          PENDING_KEY
+        );
+
       if (!raw) return;
-      const list: Material[] = JSON.parse(raw);
-      if (!Array.isArray(list) || list.length === 0) return;
 
-      const { data: auth } = await supabase.auth.getUser();
+      const list: Material[] =
+        JSON.parse(raw);
 
-      const remaining: Material[] = [];
+      if (
+        !Array.isArray(list) ||
+        list.length === 0
+      ) {
+        return;
+      }
+
+      const {
+        data: authData,
+      } = await supabase.auth.getUser();
+
+      if (!authData.user) return;
+
+      const remaining: Material[] =
+        [];
 
       for (const itm of list) {
+
         try {
+
           const payload = {
             name: itm.name,
             category: itm.category,
-            purchased_qty: itm.purchased_qty,
+            purchased_qty:
+              itm.purchased_qty,
             unit: itm.unit,
-            paid_value: itm.paid_value,
-            available_qty: itm.available_qty,
-            min_stock: itm.min_stock,
-            observations: itm.observations,
-            user_id: auth.user?.id || itm.user_id,
+            paid_value:
+              itm.paid_value,
+            available_qty:
+              itm.available_qty,
+            min_stock:
+              itm.min_stock,
+            observations:
+              itm.observations,
+            unit_cost:
+              itm.unit_cost,
+            user_id:
+              authData.user.id,
           };
 
-          const { error } = await supabase.from('materials').insert(payload);
+          const {
+            error,
+          } = await supabase
+            .from('materials')
+            .insert(payload);
+
           if (error) {
-            console.warn('Sync: insert error for pending material', itm.id, error.message);
             remaining.push(itm);
           }
-        } catch (e) {
-          console.warn('Sync attempt failed for item', itm.id, e);
+
+        } catch {
           remaining.push(itm);
         }
       }
 
       if (remaining.length === 0) {
-        localStorage.removeItem(PENDING_KEY);
+        localStorage.removeItem(
+          PENDING_KEY
+        );
       } else {
-        localStorage.setItem(PENDING_KEY, JSON.stringify(remaining));
+        localStorage.setItem(
+          PENDING_KEY,
+          JSON.stringify(remaining)
+        );
       }
 
-      // refresh from server to reflect successful inserts
-      await reloadMaterials();
-    } catch (e) {
-      console.warn('syncPendingMaterials error', e);
+    } catch (error) {
+
+      console.error(
+        'Erro syncPendingMaterials:',
+        error
+      );
     }
   }
 
-  // UPDATE
   const updateMaterial =
     useCallback(
       async (
@@ -332,10 +417,8 @@ export function MaterialsProvider({
         };
 
         if (
-          data.paid_value !==
-            undefined ||
-          data.purchased_qty !==
-            undefined
+          data.paid_value !== undefined ||
+          data.purchased_qty !== undefined
         ) {
 
           updated.unit_cost =
@@ -349,32 +432,50 @@ export function MaterialsProvider({
             );
         }
 
-        await supabase
+        const {
+          error,
+        } = await supabase
           .from('materials')
           .update(updated)
           .eq('id', id);
 
+        if (error) {
+          console.error(
+            'Erro ao atualizar material:',
+            error
+          );
+          throw error;
+        }
+
         await reloadMaterials();
       },
-      []
+      [supabase]
     );
 
-  // DELETE
   const deleteMaterial =
     useCallback(
       async (id: string) => {
 
-        await supabase
+        const {
+          error,
+        } = await supabase
           .from('materials')
           .delete()
           .eq('id', id);
 
+        if (error) {
+          console.error(
+            'Erro ao deletar material:',
+            error
+          );
+          throw error;
+        }
+
         await reloadMaterials();
       },
-      []
+      [supabase]
     );
 
-  // DECREASE
   const decreaseStock =
     useCallback(
       async (
@@ -404,7 +505,7 @@ export function MaterialsProvider({
             Math.max(
               0,
               material.available_qty -
-                entry.quantity
+              entry.quantity
             );
 
           await supabase
@@ -437,10 +538,9 @@ export function MaterialsProvider({
 
         return warnings;
       },
-      [materials]
+      [materials, supabase]
     );
 
-  // INCREASE
   const increaseStock =
     useCallback(
       async (
@@ -462,7 +562,6 @@ export function MaterialsProvider({
         await supabase
           .from('materials')
           .update({
-
             available_qty:
               material.available_qty +
               quantity,
@@ -481,10 +580,9 @@ export function MaterialsProvider({
 
         await reloadMaterials();
       },
-      [materials]
+      [materials, supabase]
     );
 
-  // ADJUST
   const adjustStock =
     useCallback(
       async (
@@ -506,7 +604,7 @@ export function MaterialsProvider({
           Math.max(
             0,
             material.available_qty +
-              delta
+            delta
           );
 
         await supabase
@@ -529,39 +627,26 @@ export function MaterialsProvider({
 
         await reloadMaterials();
       },
-      [materials]
+      [materials, supabase]
     );
 
   return (
-
     <MaterialsContext.Provider
       value={{
-
         materials,
-
         movements,
-
         loading,
-
         addMaterial,
-
         updateMaterial,
-
         deleteMaterial,
-
         decreaseStock,
-
         increaseStock,
-
         adjustStock,
-
         reloadMaterials,
         syncPendingMaterials,
       }}
     >
-
       {children}
-
     </MaterialsContext.Provider>
   );
 }
