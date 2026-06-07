@@ -172,7 +172,7 @@ export default function MateriaisPage() {
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[900px]">
               <thead>
                 <tr className="border-b border-gray-100">
                   {['Material', 'Categoria', 'Custo unit.', 'Disponível', 'Mín.', 'Status', 'Ações'].map(h => (

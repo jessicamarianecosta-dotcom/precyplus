@@ -568,9 +568,16 @@ export default function PrecificacaoPage() {
                       <strong className="block text-gray-800">{formatCurrency(p.labor_cost)}</strong> Mão de obra
                     </div>
                     <div>
-                      <strong className="block text-gray-800">{formatCurrency(p.fixed_cost_share)}</strong> Custos fixos
-                    </div>
-                  </div>
+  <div>
+  <strong className="block text-gray-800">
+    {formatCurrency(
+      p.fixed_cost_share ||
+      p.indirect_cost ||
+      0
+    )}
+  </strong>
+  Custos fixos
+</div>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Button variant="secondary" onClick={() => handleEdit(p)}>
                       Editar

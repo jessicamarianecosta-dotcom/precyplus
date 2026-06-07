@@ -136,42 +136,48 @@ export default function OrcamentosPage() {
 
   async function loadData() {
 
-    const {
-      data: budgetsData,
-    } = await supabase
-      .from('budgets')
-      .select('*')
-      .order(
-        'created_at',
-        {
-          ascending: false,
-        }
-      );
+  const {
+    data: authData,
+  } = await supabase.auth.getUser();
 
-    const {
-      data: clientsData,
-    } = await supabase
-      .from('clients')
-      .select('*');
+  const userId =
+    authData.user?.id;
 
-    const {
-      data: pricingsData,
-    } = await supabase
-      .from('pricings')
-      .select('*');
+  if (!userId) return;
 
-    setBudgets(
-      budgetsData || []
-    );
+  const {
+    data: budgetsData,
+  } = await supabase
+    .from('budgets')
+    .select('*')
+    .eq('user_id', userId);
 
-    setClients(
-      clientsData || []
-    );
+  const {
+    data: clientsData,
+  } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('user_id', userId);
 
-    setPricings(
-      pricingsData || []
-    );
-  }
+  const {
+    data: pricingsData,
+  } = await supabase
+    .from('pricings')
+    .select('*')
+    .eq('user_id', userId);
+
+  setBudgets(
+    budgetsData || []
+  );
+
+  setClients(
+    clientsData || []
+  );
+
+  setPricings(
+    pricingsData || []
+  );
+}
 
   const filtered = budgets.filter(
     b =>
@@ -549,42 +555,100 @@ export default function OrcamentosPage() {
   }
 
   async function handleCreateClient() {
-    if (!newClientForm.name.trim()) {
-      toast.error('Informe o nome do cliente');
-      return;
-    }
 
-    const { data, error } = await supabase
-      .from('clients')
-      .insert({
-        name: newClientForm.name,
-        whatsapp: newClientForm.whatsapp,
-        email: newClientForm.email,
-        observations: newClientForm.observations,
-      })
-      .select()
-      .single();
+  if (!newClientForm.name.trim()) {
 
-    if (error || !data) {
-      toast.error('Falha ao criar cliente');
-      return;
-    }
+    toast.error(
+      'Informe o nome do cliente'
+    );
 
-    setClients(prev => [data, ...prev]);
-    setForm({
-      ...form,
-      client_id: data.id,
-      client_name: data.name,
-    });
-    setNewClientForm({
-      name: '',
-      whatsapp: '',
-      email: '',
-      observations: '',
-    });
-    setNewClientModalOpen(false);
-    toast.success('Cliente criado e selecionado!');
+    return;
   }
+
+  const {
+    data: authData,
+  } = await supabase.auth.getUser();
+
+  const userId =
+    authData.user?.id;
+
+  if (!userId) {
+
+    toast.error(
+      'Usuário não autenticado'
+    );
+
+    return;
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from('clients')
+    .insert({
+
+      user_id: userId,
+
+      name:
+        newClientForm.name,
+
+      whatsapp:
+        newClientForm.whatsapp,
+
+      email:
+        newClientForm.email,
+
+      observations:
+        newClientForm.observations,
+    })
+    .select()
+    .single();
+
+  if (error || !data) {
+
+    console.error(error);
+
+    toast.error(
+      error?.message ||
+      'Falha ao criar cliente'
+    );
+
+    return;
+  }
+
+  setClients(prev => [
+    data,
+    ...prev,
+  ]);
+
+  setForm({
+    ...form,
+
+    client_id:
+      data.id,
+
+    client_name:
+      data.name,
+  });
+
+  setNewClientForm({
+
+    name: '',
+
+    whatsapp: '',
+
+    email: '',
+
+    observations: '',
+  });
+
+  setNewClientModalOpen(false);
+
+  toast.success(
+    'Cliente criado e selecionado!'
+  );
+}
 
   async function handleAddCustomProduct() {
     if (!newProductForm.name.trim()) {

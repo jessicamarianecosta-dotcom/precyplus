@@ -94,10 +94,17 @@ export default function DashboardPage() {
         user.id;
 
       setUserName(
-        user.user_metadata?.name ||
-        user.email?.split('@')[0] ||
-        'Usuário'
-      );
+
+  user.user_metadata?.full_name ||
+
+  user.user_metadata?.display_name ||
+
+  user.user_metadata?.name ||
+
+  user.email?.split('@')[0] ||
+
+  'Usuário'
+);
 
       const {
         data: materials,
@@ -136,38 +143,42 @@ export default function DashboardPage() {
       const {
         data: quotes,
       } = await supabase
-        .from('quotes')
+        .from('budgets')
         .select('*')
         .eq('user_id', userId);
 
       const {
-        data: financial,
-      } = await supabase
-        .from('financial')
-        .select('*')
-        .eq('user_id', userId);
+  data: financial,
+} = await supabase
+  .from('financial')
+  .select('*')
+  .eq('user_id', userId);
 
-      const revenue =
-        financial
-          ?.filter(
-            f => f.type === 'income'
-          )
-          .reduce(
-            (acc, item) =>
-              acc + Number(item.amount),
-            0
-          ) || 0;
+const revenue =
+  financial
+    ?.filter(
+      f =>
+        f.type === 'income' ||
+        f.type === 'entrada'
+    )
+    .reduce(
+      (acc, item) =>
+        acc + Number(item.amount || 0),
+      0
+    ) || 0;
 
-      const expenses =
-        financial
-          ?.filter(
-            f => f.type === 'expense'
-          )
-          .reduce(
-            (acc, item) =>
-              acc + Number(item.amount),
-            0
-          ) || 0;
+const expenses =
+  financial
+    ?.filter(
+      f =>
+        f.type === 'expense' ||
+        f.type === 'saida'
+    )
+    .reduce(
+      (acc, item) =>
+        acc + Number(item.amount || 0),
+      0
+    ) || 0;
 
       setStats({
         totalMaterials:
@@ -189,8 +200,8 @@ export default function DashboardPage() {
         approvedQuotes:
           quotes?.filter(
             q =>
-              q.status ===
-              'approved'
+             q.status ===
+'aprovado'
           ).length || 0,
 
         totalRevenue:
