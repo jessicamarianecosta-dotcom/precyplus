@@ -211,7 +211,9 @@ export default function PrecificacaoPage() {
   function calculate() {
     const taxMultiplier = 1 + Number(form.commission_pct) / 100 + Number(form.extra_taxes) / 100;
     const totalCost = (directCost + indirectCost) * taxMultiplier;
-    const recommendedPrice = totalCost / (1 - Number(form.profit_margin) / 100);
+    const recommendedPrice =
+  totalCost *
+  (1 + Number(form.profit_margin) / 100);
 
     setResult({
       materials_cost: materialsCost,
