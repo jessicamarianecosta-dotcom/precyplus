@@ -266,10 +266,21 @@ export default function PrecificacaoPage() {
     } else {
       const { data: productData, error: productError } = await supabase.from('products').insert(productPayload).select('id').single();
       if (productError || !productData) {
-        toast.error('Erro ao salvar o produto');
-        setLoading(false);
-        return;
-      }
+
+  console.error(
+    'ERRO PRODUCT:',
+    productError
+  );
+
+  toast.error(
+    productError?.message ||
+    'Erro ao salvar o produto'
+  );
+
+  setLoading(false);
+
+  return;
+}
       productId = productData.id;
     }
 
@@ -433,7 +444,13 @@ export default function PrecificacaoPage() {
   const filtered = pricings.filter(item => item.product_name.toLowerCase().includes(search.toLowerCase()));
 
   const suggestions = result ? marginOptions.map(margin => {
-    const price = result.total_cost ? result.total_cost / (1 - margin / 100) : 0;
+    const price =
+  margin >= 100
+    ? 0
+    : result.total_cost
+      ? result.total_cost /
+        (1 - margin / 100)
+      : 0;
     return { margin, price, profit: price - (result.total_cost || 0) };
   }) : [];
 
