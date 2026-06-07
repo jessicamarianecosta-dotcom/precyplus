@@ -54,6 +54,9 @@ export interface Product {
   name: string;
   category: string;
   description?: string;
+  image_url?: string;
+  unit?: string;
+  product_type?: string;
   sale_price?: number;
   materials: ProductMaterial[];
   labor_time_minutes: number;
@@ -74,6 +77,11 @@ export interface Pricing {
   user_id: string;
   product_id?: string;
   product_name: string;
+  category?: string;
+  description?: string;
+  image_url?: string;
+  unit?: string;
+  product_type?: string;
   materials_cost: number;
   labor_cost: number;
   fixed_cost_share: number;

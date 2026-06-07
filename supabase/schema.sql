@@ -128,8 +128,14 @@ CREATE TRIGGER trg_fill_material_name BEFORE INSERT ON stock_movements FOR EACH 
 CREATE TABLE IF NOT EXISTS products (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  name TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'Outros', description TEXT,
-  labor_time_minutes NUMERIC DEFAULT 30, created_at TIMESTAMPTZ DEFAULT NOW()
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'Outros',
+  description TEXT,
+  image_url TEXT,
+  unit TEXT NOT NULL DEFAULT 'unidade',
+  product_type TEXT,
+  labor_time_minutes NUMERIC DEFAULT 30,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Own products" ON products USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);

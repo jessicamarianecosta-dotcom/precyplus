@@ -22,10 +22,14 @@ import {
   Modal,
 } from '@/components/ui';
 
-import { formatCurrency } from '@/lib/utils';
+import {
+  formatCurrency,
+  MATERIAL_CATEGORIES,
+  MATERIAL_UNITS,
+} from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useMaterials } from '@/lib/materials-store';
-import type { Pricing, Product, ProductMaterial } from '@/types';
+import type { Pricing, ProductMaterial } from '@/types';
 
 const PRICINGS_KEY = 'precy_pricings';
 const FIXED_COSTS_KEY = 'precy_fixed_costs';
@@ -33,6 +37,11 @@ const FIXED_COSTS_KEY = 'precy_fixed_costs';
 const DEFAULT_FORM = {
   product_id: '',
   product_name: '',
+  category: '',
+  description: '',
+  image_url: '',
+  unit: 'unidade',
+  product_type: '',
   materials_cost: 0,
   labor_time_minutes: 0,
   hourly_rate: 15,
@@ -43,6 +52,13 @@ const DEFAULT_FORM = {
   profit_margin: 40,
   fixed_cost_daily: 20,
 };
+
+const PRODUCT_TYPES = [
+  'Físico',
+  'Digital',
+  'Sob medida',
+  'Personalizado',
+];
 
 const EMPTY_MATERIAL_LINE: ProductMaterial = {
   material_id: '',
@@ -57,7 +73,6 @@ export default function PrecificacaoPage() {
   const supabase = createClient();
   const { materials } = useMaterials();
 
-  const [products, setProducts] = useState<Product[]>([]);
   const [pricings, setPricings] = useState<Pricing[]>(() => {
     if (typeof window === 'undefined') return [];
     const saved = localStorage.getItem(PRICINGS_KEY);
@@ -88,10 +103,6 @@ export default function PrecificacaoPage() {
   const [newMargin, setNewMargin] = useState('');
 
   useEffect(() => {
-    loadProducts();
-  }, []);
-
-  useEffect(() => {
     localStorage.setItem(PRICINGS_KEY, JSON.stringify(pricings));
   }, [pricings]);
 
@@ -108,49 +119,10 @@ export default function PrecificacaoPage() {
     }
   }, []);
 
-  async function loadProducts() {
-    const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-    setProducts(data || []);
-  }
 
   const setField = (key: string, value: string | number) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
-
-  function selectProduct(productId: string) {
-    if (productId === '') {
-      setForm(DEFAULT_FORM);
-      setPricingMaterials([EMPTY_MATERIAL_LINE]);
-      setResult(null);
-      return;
-    }
-
-    const product = products.find(item => item.id === productId);
-    if (!product) {
-      setForm(DEFAULT_FORM);
-      setPricingMaterials([EMPTY_MATERIAL_LINE]);
-      setResult(null);
-      return;
-    }
-
-    const lines = product.materials.length > 0 ? product.materials.map(material => ({
-      ...material,
-      total_cost: material.unit_cost * material.quantity,
-    })) : [EMPTY_MATERIAL_LINE];
-
-    const materialsCost = lines.reduce((sum, item) => sum + item.total_cost, 0);
-
-    setForm(prev => ({
-      ...prev,
-      product_id: product.id,
-      product_name: product.name,
-      materials_cost: materialsCost,
-      labor_time_minutes: product.labor_time_minutes || 0,
-    }));
-
-    setPricingMaterials(lines);
-    setResult(null);
-  }
 
   function addPricingMaterial() {
     setPricingMaterials(prev => [...prev, EMPTY_MATERIAL_LINE]);
@@ -196,6 +168,20 @@ export default function PrecificacaoPage() {
       return { ...item, unit_cost: cost, total_cost: cost * item.quantity };
     }));
     setResult(null);
+  }
+
+  function normalizePricingMaterials(lines: ProductMaterial[]) {
+    return lines.map(item => {
+      const current = materials.find(mat => mat.id === item.material_id);
+      const unit_cost = current?.unit_cost ?? item.unit_cost;
+      return {
+        ...item,
+        unit: current?.unit ?? item.unit,
+        material_name: current?.name ?? item.material_name,
+        unit_cost,
+        total_cost: unit_cost * item.quantity,
+      };
+    });
   }
 
   function addMarginOption() {
@@ -252,17 +238,96 @@ export default function PrecificacaoPage() {
       toast.error('Calcule primeiro');
       return;
     }
+
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 400));
+
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id || 'u1';
+
+    const normalizedMaterials = normalizePricingMaterials(pricingMaterials);
     const existingPricing = editingPricingId ? pricings.find(item => item.id === editingPricingId) : null;
     const pricingId = editingPricingId || Date.now().toString();
     const createdAt = existingPricing?.created_at || new Date().toISOString();
 
+    let productId = form.product_id || undefined;
+    const productPayload = {
+      user_id: userId,
+      name: form.product_name,
+      category: form.category || 'Outros',
+      description: form.description || null,
+      labor_time_minutes: form.labor_time_minutes,
+      image_url: form.image_url || null,
+      unit: form.unit || 'unidade',
+      product_type: form.product_type || null,
+    };
+
+    if (editingPricingId && productId) {
+      await supabase.from('products').update(productPayload).eq('id', productId);
+    } else {
+      const { data: productData, error: productError } = await supabase.from('products').insert(productPayload).select('id').single();
+      if (productError || !productData) {
+        toast.error('Erro ao salvar o produto');
+        setLoading(false);
+        return;
+      }
+      productId = productData.id;
+    }
+
+    if (productId) {
+      await supabase.from('product_materials').delete().eq('product_id', productId);
+
+      const productMaterialRows = normalizedMaterials
+        .filter(material => material.material_id)
+        .map(material => ({
+          product_id: productId,
+          material_id: material.material_id,
+          material_name: material.material_name,
+          quantity: material.quantity,
+          unit: material.unit,
+          unit_cost: material.unit_cost,
+          total_cost: material.total_cost,
+        }));
+
+      if (productMaterialRows.length > 0) {
+        await supabase.from('product_materials').insert(productMaterialRows);
+      }
+    }
+
+    const pricingPayload = {
+      user_id: userId,
+      product_id: productId || null,
+      product_name: form.product_name,
+      materials_cost: result.materials_cost || 0,
+      labor_cost: result.labor_cost || 0,
+      fixed_cost_share: result.fixed_cost_share || 0,
+      packaging_cost: result.packaging_cost || 0,
+      delivery_cost: result.delivery_cost || 0,
+      commission_pct: result.commission_pct || 0,
+      extra_taxes: result.extra_taxes || 0,
+      profit_margin: result.profit_margin || 0,
+      total_cost: result.total_cost || 0,
+      min_price: result.min_price || 0,
+      recommended_price: result.recommended_price || 0,
+      premium_price: result.premium_price || 0,
+      created_at: createdAt,
+    };
+
+    if (editingPricingId) {
+      await supabase.from('pricings').update(pricingPayload).eq('id', editingPricingId);
+    } else {
+      await supabase.from('pricings').insert(pricingPayload);
+    }
+
     const savedPricing: Pricing = {
       id: pricingId,
-      user_id: 'u1',
-      product_id: form.product_id || undefined,
+      user_id: userId,
+      product_id: productId || undefined,
       product_name: form.product_name,
+      category: form.category,
+      description: form.description,
+      image_url: form.image_url,
+      unit: form.unit,
+      product_type: form.product_type,
       materials_cost: result.materials_cost || 0,
       labor_cost: result.labor_cost || 0,
       fixed_cost_share: result.fixed_cost_share || 0,
@@ -278,7 +343,7 @@ export default function PrecificacaoPage() {
       recommended_price: result.recommended_price || 0,
       premium_price: result.premium_price || 0,
       profit_estimated: result.profit_estimated || 0,
-      materials: result.materials || [],
+      materials: normalizedMaterials,
       created_at: createdAt,
     };
 
@@ -288,7 +353,8 @@ export default function PrecificacaoPage() {
       }
       return [savedPricing, ...prev];
     });
-    toast.success(editingPricingId ? 'Precificação atualizada!' : 'Precificação salva!');
+
+    toast.success(editingPricingId ? 'Produto precificado atualizado!' : 'Produto precificado salvo!');
     setModalOpen(false);
     setEditingPricingId(null);
     setForm(DEFAULT_FORM);
@@ -302,6 +368,11 @@ export default function PrecificacaoPage() {
     setForm({
       product_id: pricing.product_id || '',
       product_name: pricing.product_name,
+      category: pricing.category || '',
+      description: pricing.description || '',
+      image_url: pricing.image_url || '',
+      unit: pricing.unit || 'unidade',
+      product_type: pricing.product_type || '',
       materials_cost: pricing.materials_cost,
       labor_time_minutes: pricing.labor_cost && form.hourly_rate ? Math.round((pricing.labor_cost / form.hourly_rate) * 60) : 0,
       hourly_rate: form.hourly_rate,
@@ -312,7 +383,7 @@ export default function PrecificacaoPage() {
       profit_margin: pricing.profit_margin,
       fixed_cost_daily: form.fixed_cost_daily,
     });
-    setPricingMaterials(pricing.materials && pricing.materials.length > 0 ? pricing.materials : [EMPTY_MATERIAL_LINE]);
+    setPricingMaterials(pricing.materials && pricing.materials.length > 0 ? normalizePricingMaterials(pricing.materials) : [EMPTY_MATERIAL_LINE]);
     setResult({
       materials_cost: pricing.materials_cost,
       labor_cost: pricing.labor_cost,
@@ -360,7 +431,6 @@ export default function PrecificacaoPage() {
   }
 
   const filtered = pricings.filter(item => item.product_name.toLowerCase().includes(search.toLowerCase()));
-  const productOptions = [{ value: '', label: 'Selecione um produto' }, ...products.map(product => ({ value: product.id, label: product.name })), { value: 'custom', label: 'Produto personalizado' }];
 
   const suggestions = result ? marginOptions.map(margin => {
     const price = result.total_cost ? result.total_cost / (1 - margin / 100) : 0;
@@ -374,7 +444,7 @@ export default function PrecificacaoPage() {
         subtitle="Calcule automaticamente o preço ideal."
         action={
           <Button icon={Calculator} onClick={() => setModalOpen(true)}>
-            Nova precificação
+            Criar Produto Precificado
           </Button>
         }
       />
@@ -488,16 +558,36 @@ export default function PrecificacaoPage() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={handleCancelEdit} title={editingPricingId ? 'Editar precificação' : 'Nova precificação'} size="xl">
+      <Modal open={modalOpen} onClose={handleCancelEdit} title={editingPricingId ? 'Editar produto precificado' : 'Criar produto precificado'} size="xl">
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Select
-              label="Produto"
-              value={form.product_id}
-              onChange={e => selectProduct(e.target.value)}
-              options={productOptions}
-            />
             <Input label="Nome do produto" value={form.product_name} onChange={e => setField('product_name', e.target.value)} />
+            <Select
+              label="Categoria"
+              value={form.category}
+              onChange={e => setField('category', e.target.value)}
+              options={[{ value: '', label: 'Selecione uma categoria' }, ...MATERIAL_CATEGORIES.map(category => ({ value: category, label: category }))]}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Descrição" value={form.description} onChange={e => setField('description', e.target.value)} />
+            <Input label="Imagem / URL" value={form.image_url} onChange={e => setField('image_url', e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              label="Unidade"
+              value={form.unit}
+              onChange={e => setField('unit', e.target.value)}
+              options={[{ value: '', label: 'Selecione uma unidade' }, ...MATERIAL_UNITS.map(unit => ({ value: unit, label: unit }))]}
+            />
+            <Select
+              label="Tipo de produto"
+              value={form.product_type}
+              onChange={e => setField('product_type', e.target.value)}
+              options={[{ value: '', label: 'Selecione um tipo' }, ...PRODUCT_TYPES.map(type => ({ value: type, label: type }))]}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -612,7 +702,10 @@ export default function PrecificacaoPage() {
           )}
         </div>
 
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex flex-wrap justify-end gap-3 mt-6">
+          <Button variant="secondary" onClick={calculate}>
+            Calcular
+          </Button>
           <Button variant="ghost" onClick={handleCancelEdit}>
             Cancelar
           </Button>

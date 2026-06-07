@@ -53,12 +53,6 @@ const menu: MenuItem[] = [
   },
 
   {
-    label: 'Produtos',
-    href: '/dashboard/produtos',
-    icon: Package,
-  },
-
-  {
     label: 'Precificação',
     href: '/dashboard/precificacao',
     icon: Calculator,
