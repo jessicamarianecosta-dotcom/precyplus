@@ -443,16 +443,15 @@ export default function PrecificacaoPage() {
 
   const filtered = pricings.filter(item => item.product_name.toLowerCase().includes(search.toLowerCase()));
 
-  const suggestions = result
+ const suggestions = result
   ? marginOptions.map(margin => {
 
+      const totalCost =
+        result.total_cost || 0;
+
       const price =
-        margin >= 100
-          ? (result.total_cost || 0) * 2
-          : result.total_cost
-            ? result.total_cost /
-              (1 - margin / 100)
-            : 0;
+        totalCost *
+        (1 + margin / 100);
 
       return {
 
@@ -461,8 +460,7 @@ export default function PrecificacaoPage() {
         price,
 
         profit:
-          price -
-          (result.total_cost || 0),
+          price - totalCost,
       };
 
     })
