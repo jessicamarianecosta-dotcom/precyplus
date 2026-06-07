@@ -93,16 +93,18 @@ export default function DashboardPage() {
       const userId =
         user.id;
 
-      setUserName(
+      const { data: profile } =
+  await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .single();
 
+setUserName(
+  profile?.display_name ||
   user.user_metadata?.full_name ||
-
   user.user_metadata?.display_name ||
-
-  user.user_metadata?.name ||
-
   user.email?.split('@')[0] ||
-
   'Usuário'
 );
 
