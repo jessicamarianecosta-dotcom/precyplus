@@ -67,17 +67,20 @@ export default function DashboardPage() {
         data: authData,
       } = await supabase.auth.getUser();
 
-      const userId =
-        authData.user?.id;
+      const user =
+        authData.user;
 
-      if (!userId) {
+      if (!user) {
         setLoading(false);
         return;
       }
 
+      const userId =
+        user.id;
+
       setUserName(
-        authData.user?.user_metadata?.name ||
-        authData.user?.email?.split('@')[0] ||
+        user.user_metadata?.name ||
+        user.email?.split('@')[0] ||
         'Usuário'
       );
 
@@ -95,14 +98,14 @@ export default function DashboardPage() {
       const lowStock =
         materials?.filter(
           m =>
-            m.available_qty <=
-            m.min_stock
+            Number(m.available_qty) <=
+            Number(m.min_stock)
         ).length || 0;
 
       const criticalStock =
         materials?.filter(
           m =>
-            m.available_qty <= 0
+            Number(m.available_qty) <= 0
         ).length || 0;
 
       // ======================
@@ -262,8 +265,6 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
 
-      {/* HEADER */}
-
       <div>
         <h1 className="text-3xl font-black text-[#1A1F5E]">
           {getGreeting()}, {userName} 👋
@@ -273,8 +274,6 @@ export default function DashboardPage() {
           Aqui está o resumo do seu negócio.
         </p>
       </div>
-
-      {/* CARDS */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
 
@@ -315,8 +314,6 @@ export default function DashboardPage() {
           );
         })}
       </div>
-
-      {/* FINANCEIRO */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -383,8 +380,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-
-      {/* ALERTAS */}
 
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
 
