@@ -125,13 +125,13 @@ export default function MateriaisPage() {
       title="Materiais & Estoque"
       subtitle="Gerencie seus materiais. O estoque baixa automaticamente quando você cria produtos."
       action={
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-4 sm:mt-0">
 
           <Button
             variant="secondary"
             icon={History}
             size="sm"
-            className="flex-1 sm:flex-none"
+            className="w-full sm:w-auto"
             onClick={() => setHistoryOpen(true)}
           >
             Histórico
@@ -140,7 +140,7 @@ export default function MateriaisPage() {
           <Button
             variant="secondary"
             size="sm"
-            className="flex-1 sm:flex-none"
+            className="w-full sm:w-auto"
             onClick={async () => {
               setLoading(true);
 
@@ -160,7 +160,7 @@ export default function MateriaisPage() {
           <Button
             icon={Plus}
             onClick={openNew}
-            className="flex-1 sm:flex-none"
+            className="w-full sm:w-auto"
           >
             Novo material
           </Button>
