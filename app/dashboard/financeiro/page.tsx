@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import {
+  useMemo,
   useState,
   useEffect,
 } from 'react';
@@ -31,6 +32,8 @@ import {
   formatDate,
 } from '@/lib/utils';
 
+import { createClient } from '@/lib/supabase/client';
+
 import type {
   FinancialEntry,
 } from '@/types';
@@ -44,10 +47,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-
-// STORAGE
-const FINANCE_KEY =
-  'precy_finance';
 
 const INCOME_CATS = [
   'Venda de produto',
@@ -66,61 +65,19 @@ const EXPENSE_CATS = [
   'Outros',
 ];
 
-// DEMO PRIMEIRA VEZ
-const DEMO_ENTRIES: FinancialEntry[] = [
-  {
-    id: '1',
-    user_id: 'u1',
-    type: 'income',
-    value: 85,
-    description:
-      'Venda Cadernos',
-    category:
-      'Venda de produto',
-    status: 'paid',
-    paid_at:
-      new Date().toISOString(),
-    created_at:
-      new Date().toISOString(),
-  },
-];
-
-const FLOW_DATA = [
-  {
-    mes: 'Jan',
-    entradas: 320,
-    saidas: 180,
-  },
-
-  {
-    mes: 'Fev',
-    entradas: 450,
-    saidas: 210,
-  },
-
-  {
-    mes: 'Mar',
-    entradas: 280,
-    saidas: 150,
-  },
-
-  {
-    mes: 'Abr',
-    entradas: 620,
-    saidas: 280,
-  },
-
-  {
-    mes: 'Mai',
-    entradas: 540,
-    saidas: 230,
-  },
-
-  {
-    mes: 'Jun',
-    entradas: 780,
-    saidas: 310,
-  },
+const MONTH_LABELS = [
+  'Jan',
+  'Fev',
+  'Mar',
+  'Abr',
+  'Mai',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Set',
+  'Out',
+  'Nov',
+  'Dez',
 ];
 
 const EMPTY_FORM = {
@@ -146,37 +103,16 @@ const EMPTY_FORM = {
 };
 
 export default function FinanceiroPage() {
+  const supabase = useMemo(
+    () => createClient(),
+    []
+  );
 
-  // LOAD STORAGE
   const [entries, setEntries] =
-    useState<
-      FinancialEntry[]
-    >(() => {
+    useState<FinancialEntry[]>([]);
 
-      if (
-        typeof window ===
-        'undefined'
-      ) {
-        return DEMO_ENTRIES;
-      }
-
-      const saved =
-        localStorage.getItem(
-          FINANCE_KEY
-        );
-
-      return saved
-        ? JSON.parse(saved)
-        : DEMO_ENTRIES;
-    });
-
-  // SAVE STORAGE
-  useEffect(() => {
-    localStorage.setItem(
-      FINANCE_KEY,
-      JSON.stringify(entries)
-    );
-  }, [entries]);
+  const [userId, setUserId] =
+    useState<string | null>(null);
 
   const [tab, setTab] =
     useState<
@@ -257,8 +193,148 @@ export default function FinanceiroPage() {
         e.type === tab
     );
 
-  async function handleSave() {
+  const flowData = Object.values(
+    entries.reduce(
+      (
+        acc,
+        entry
+      ) => {
+        const date =
+          new Date(
+            entry.created_at
+          );
+        const month =
+          MONTH_LABELS[date.getMonth()];
+        const year =
+          date.getFullYear();
+        const key = `${year}-${String(
+          date.getMonth() +
+            1
+        ).padStart(2, '0')}`;
+        const period =
+          `${month} ${year}`;
 
+        if (!acc[key]) {
+          acc[key] = {
+            mes: period,
+            entradas: 0,
+            saidas: 0,
+            key,
+          };
+        }
+
+        if (
+          entry.type ===
+          'income'
+        ) {
+          acc[key].entradas +=
+            entry.value;
+        } else {
+          acc[key].saidas +=
+            entry.value;
+        }
+
+        return acc;
+      },
+      {} as Record<
+        string,
+        {
+          mes: string;
+          entradas: number;
+          saidas: number;
+          key: string;
+        }
+      >
+    )
+  )
+    .sort((a, b) =>
+      a.key.localeCompare(
+        b.key
+      )
+    )
+    .map(({key, ...rest}) => rest);
+
+  useEffect(() => {
+    async function loadEntries() {
+      setLoading(true);
+
+      try {
+        const {
+          data: authData,
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) {
+          toast.error(
+            'Falha ao carregar usuário.'
+          );
+          return;
+        }
+
+        const user = authData?.user;
+
+        if (!user) {
+          setEntries([]);
+          return;
+        }
+
+        setUserId(user.id);
+
+        const {
+          data,
+          error,
+        } = await supabase
+          .from('financial')
+          .select(
+            'id, user_id, type, amount, description, category, status, paid_at, created_at'
+          )
+          .eq('user_id', user.id)
+          .order('created_at', {
+            ascending: false,
+          });
+
+        if (error) {
+          toast.error(
+            'Não foi possível carregar os lançamentos.'
+          );
+          return;
+        }
+
+        if (!data) {
+          setEntries([]);
+          return;
+        }
+
+        setEntries(
+          data.map(
+            row => ({
+              id: row.id,
+              user_id: row.user_id,
+              type: row.type,
+              value: row.amount,
+              description:
+                row.description,
+              category: row.category,
+              status: row.status,
+              paid_at: row.paid_at ?? undefined,
+              created_at:
+                row.created_at,
+            })
+          )
+        );
+      } catch (error) {
+        toast.error(
+          'Erro ao recuperar os dados.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadEntries();
+  }, [supabase]);
+
+  async function handleSave() {
     if (
       !form.value ||
       !form.description ||
@@ -267,118 +343,219 @@ export default function FinanceiroPage() {
       toast.error(
         'Preencha os campos obrigatórios'
       );
+      return;
+    }
 
+    if (!userId) {
+      toast.error(
+        'Usuário não autenticado.'
+      );
       return;
     }
 
     setLoading(true);
 
-    await new Promise(r =>
-      setTimeout(r, 300)
-    );
-
-    const newE: FinancialEntry =
-      {
-        id: Date.now().toString(),
-
-        user_id: 'u1',
-
+    try {
+      const payload = {
+        user_id: userId,
         type: form.type,
-
-        value: Number(
+        amount: Number(
           form.value
         ),
-
         description:
           form.description,
-
         category:
           form.category,
-
-        client_name:
-          form.client_name,
-
-        due_date:
-          form.due_date,
-
         status: form.status,
-
         paid_at:
           form.status ===
           'paid'
             ? new Date().toISOString()
-            : undefined,
-
+            : null,
         created_at:
           new Date().toISOString(),
       };
 
-    setEntries(prev => [
-      newE,
-      ...prev,
-    ]);
+      const {
+        data,
+        error,
+      } = await supabase
+        .from('financial')
+        .insert(payload)
+        .select(
+          'id, user_id, type, amount, description, category, status, paid_at, created_at'
+        )
+        .single();
 
-    toast.success(
-      form.type ===
-        'income'
-        ? 'Entrada registrada! 💚'
-        : 'Saída registrada!'
-    );
+      if (error || !data) {
+        throw error ?? new Error(
+          'Erro ao salvar lançamento.'
+        );
+      }
 
-    setModalOpen(false);
+      const newEntry:
+        FinancialEntry = {
+        id: data.id,
+        user_id: data.user_id,
+        type: data.type,
+        value: data.amount,
+        description:
+          data.description,
+        category: data.category,
+        status: data.status,
+        paid_at:
+          data.paid_at ?? undefined,
+        created_at:
+          data.created_at,
+      };
 
-    setForm(EMPTY_FORM);
+      setEntries(prev => [
+        newEntry,
+        ...prev,
+      ]);
 
-    setLoading(false);
+      toast.success(
+        form.type ===
+          'income'
+          ? 'Entrada registrada! 💚'
+          : 'Saída registrada!'
+      );
+
+      setModalOpen(false);
+      setForm(EMPTY_FORM);
+    } catch (error) {
+      toast.error(
+        'Não foi possível salvar o lançamento.'
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function toggleStatus(
+  async function toggleStatus(
     id: string
   ) {
+    if (!userId) {
+      toast.error(
+        'Usuário não autenticado.'
+      );
+      return;
+    }
 
-    setEntries(prev =>
-      prev.map(e =>
-        e.id === id
-          ? {
-              ...e,
+    setLoading(true);
 
-              status:
-                e.status ===
-                'pending'
-                  ? 'paid'
-                  : 'pending',
+    try {
+      const existing = entries.find(
+        entry => entry.id === id
+      );
 
-              paid_at:
-                e.status ===
-                'pending'
-                  ? new Date().toISOString()
-                  : undefined,
-            }
-          : e
-      )
-    );
+      if (!existing) {
+        toast.error(
+          'Lançamento não encontrado.'
+        );
+        return;
+      }
+
+      const nextStatus =
+        existing.status ===
+        'pending'
+          ? 'paid'
+          : 'pending';
+
+      const payload = {
+        status: nextStatus,
+        paid_at:
+          nextStatus ===
+          'paid'
+            ? new Date().toISOString()
+            : null,
+      };
+
+      const {
+        data,
+        error,
+      } = await supabase
+        .from('financial')
+        .update(payload)
+        .eq('id', id)
+        .select(
+          'id, user_id, type, amount, description, category, status, paid_at, created_at'
+        )
+        .single();
+
+      if (error || !data) {
+        throw error ?? new Error(
+          'Erro ao atualizar status.'
+        );
+      }
+
+      setEntries(prev =>
+        prev.map(entry =>
+          entry.id === id
+            ? {
+                ...entry,
+                status: data.status,
+                paid_at:
+                  data.paid_at ?? undefined,
+              }
+            : entry
+        )
+      );
+    } catch (error) {
+      toast.error(
+        'Não foi possível atualizar o status.'
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleDelete(
+  async function handleDelete(
     id: string
   ) {
-
     if (
       !confirm(
         'Excluir lançamento?'
       )
-    )
+    ) {
       return;
+    }
 
-    setEntries(prev =>
-      prev.filter(
-        e => e.id !== id
-      )
-    );
+    if (!userId) {
+      toast.error(
+        'Usuário não autenticado.'
+      );
+      return;
+    }
 
-    toast.success(
-      'Lançamento removido.'
-    );
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('financial')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+
+      setEntries(prev =>
+        prev.filter(
+          e => e.id !== id
+        )
+      );
+
+      toast.success(
+        'Lançamento removido.'
+      );
+    } catch (error) {
+      toast.error(
+        'Não foi possível excluir o lançamento.'
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -577,7 +754,7 @@ export default function FinanceiroPage() {
         >
 
           <BarChart
-            data={FLOW_DATA}
+            data={flowData}
             barGap={4}
           >
 
