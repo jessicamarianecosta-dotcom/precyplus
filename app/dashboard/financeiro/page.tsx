@@ -193,66 +193,71 @@ export default function FinanceiroPage() {
         e.type === tab
     );
 
-  const flowData = Object.values(
-    entries.reduce(
-      (
-        acc,
-        entry
-      ) => {
-        const date =
-          new Date(
-            entry.created_at
-          );
-        const month =
-          MONTH_LABELS[date.getMonth()];
-        const year =
-          date.getFullYear();
-        const key = `${year}-${String(
-          date.getMonth() +
-            1
-        ).padStart(2, '0')}`;
-        const period =
-          `${month} ${year}`;
+  const flowData = Array.from(
+    { length: 12 },
+    (_, index) => {
+      const date = new Date();
+      date.setMonth(
+        date.getMonth() -
+          (11 - index)
+      );
 
-        if (!acc[key]) {
-          acc[key] = {
-            mes: period,
-            entradas: 0,
-            saidas: 0,
-            key,
-          };
-        }
+      const month =
+        MONTH_LABELS[date.getMonth()];
+      const year =
+        date.getFullYear();
+      const key = `${year}-${String(
+        date.getMonth() + 1
+      ).padStart(2, '0')}`;
 
-        if (
-          entry.type ===
-          'income'
-        ) {
-          acc[key].entradas +=
-            entry.value;
-        } else {
-          acc[key].saidas +=
-            entry.value;
-        }
+      const entradas = entries
+        .filter(
+          entry =>
+            entry.type ===
+              'income' &&
+            new Date(
+              entry.created_at
+            ).getMonth() ===
+              date.getMonth() &&
+            new Date(
+              entry.created_at
+            ).getFullYear() ===
+              date.getFullYear()
+        )
+        .reduce(
+          (sum, entry) =>
+            sum + entry.value,
+          0
+        );
 
-        return acc;
-      },
-      {} as Record<
-        string,
-        {
-          mes: string;
-          entradas: number;
-          saidas: number;
-          key: string;
-        }
-      >
-    )
-  )
-    .sort((a, b) =>
-      a.key.localeCompare(
-        b.key
-      )
-    )
-    .map(({key, ...rest}) => rest);
+      const saidas = entries
+        .filter(
+          entry =>
+            entry.type ===
+              'expense' &&
+            new Date(
+              entry.created_at
+            ).getMonth() ===
+              date.getMonth() &&
+            new Date(
+              entry.created_at
+            ).getFullYear() ===
+              date.getFullYear()
+        )
+        .reduce(
+          (sum, entry) =>
+            sum + entry.value,
+          0
+        );
+
+      return {
+        mes: `${month} ${year}`,
+        entradas,
+        saidas,
+        key,
+      };
+    }
+  );
 
   useEffect(() => {
     async function loadEntries() {

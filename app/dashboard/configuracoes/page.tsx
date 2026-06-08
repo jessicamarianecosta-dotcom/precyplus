@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 
@@ -30,17 +30,13 @@ const STATES = [
   'RJ','RN','RO','RR','RS','SC','SE','SP','TO'
 ];
 
-const PLAN_LABELS: Record<
-  string,
-  string
-> = {
+const PLAN_LABELS: Record<string, string> = {
   basic: 'Basic — R$ 17/mês',
   pro: 'Pro — R$ 37/mês',
   free: 'Gratuito',
 };
 
 export default function ConfiguracoesPage() {
-
   const [activeTab, setActiveTab] =
     useState('empresa');
 
@@ -70,7 +66,6 @@ export default function ConfiguracoesPage() {
       city: '',
       state: 'PR',
       logo_url: '',
-
       primary_color: '#FF4FA3',
       secondary_color: '#1A1F5E',
     });
@@ -89,127 +84,184 @@ export default function ConfiguracoesPage() {
   async function handleSave() {
     setSaving(true);
 
-    const theme = {
-      primary: empresa.primary_color,
-      secondary: empresa.secondary_color,
-      logo: empresa.logo_url,
-    };
+    try {
+      const theme = {
+        primary: empresa.primary_color,
+        secondary: empresa.secondary_color,
+        logo: empresa.logo_url,
+      };
 
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(
-        'precy_theme',
-        JSON.stringify(theme)
-      );
-      applyTheme(theme);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          'precy_theme',
+          JSON.stringify(theme)
+        );
+        applyTheme(theme);
+      }
+
+      const {
+        data: authData,
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        toast.error('Erro ao obter usuário.');
+        return;
+      }
+
+      const user = authData?.user;
+
+      if (!user) {
+        toast.error('Usuário não autenticado.');
+        return;
+      }
+
+      const companyPayload = {
+        user_id: user.id,
+        name: empresa.name,
+        owner_name: empresa.owner,
+        whatsapp: empresa.whatsapp,
+        instagram: empresa.instagram,
+        city: empresa.city,
+        state: empresa.state,
+        logo_url: empresa.logo_url,
+      };
+
+      const {
+        error: companyError,
+      } = await supabase
+        .from('companies')
+        .upsert(companyPayload, {
+          onConflict: 'user_id',
+        });
+
+      if (companyError) {
+        toast.error('Não foi possível salvar os dados da empresa.');
+        return;
+      }
+
+      const settingsPayload = {
+        user_id: user.id,
+        work_hours_day: financeiro.work_hours_day,
+        work_days_month: financeiro.work_days_month,
+        profit_goal: financeiro.profit_goal,
+        default_margin: financeiro.default_margin,
+        default_commission: financeiro.default_commission,
+        default_waste: financeiro.default_waste,
+        hourly_rate: financeiro.hourly_rate,
+      };
+
+      const {
+        error: settingsError,
+      } = await supabase
+        .from('user_settings')
+        .upsert(settingsPayload, {
+          onConflict: 'user_id',
+        });
+
+      if (settingsError) {
+        toast.error('Não foi possível salvar as configurações financeiras.');
+        return;
+      }
+
+      toast.success('Configurações salvas! ✅');
+    } catch (error) {
+      toast.error('Erro ao salvar configurações. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
-
-    const { data: userData } =
-      await supabase.auth.getUser();
-
-    if (userData.user) {
-      await supabase.from('companies').upsert(
-        {
-          user_id: userData.user.id,
-          name: empresa.name,
-          owner_name: empresa.owner,
-          whatsapp: empresa.whatsapp,
-          instagram: empresa.instagram,
-          city: empresa.city,
-          state: empresa.state,
-          logo_url: empresa.logo_url,
-        },
-        { onConflict: 'user_id' }
-      );
-
-      await supabase.from('user_settings').upsert(
-        {
-          user_id: userData.user.id,
-          work_hours_day: financeiro.work_hours_day,
-          work_days_month: financeiro.work_days_month,
-          profit_goal: financeiro.profit_goal,
-          default_margin:
-            financeiro.default_margin,
-          default_commission:
-            financeiro.default_commission,
-          default_waste:
-            financeiro.default_waste,
-          hourly_rate:
-            financeiro.hourly_rate,
-        },
-        { onConflict: 'user_id' }
-      );
-    }
-
-    toast.success(
-      'Configurações salvas! ✅'
-    );
-    setSaving(false);
   }
 
   async function handlePortal() {
-
     setPortalLoading(true);
 
-    await openPortal();
-
-    setPortalLoading(false);
+    try {
+      await openPortal();
+    } catch (error) {
+      toast.error('Erro ao abrir o portal de assinaturas.');
+    } finally {
+      setPortalLoading(false);
+    }
   }
 
   useEffect(() => {
     async function loadSettings() {
-      const { data: userData } =
-        await supabase.auth.getUser();
+      try {
+        const {
+          data: authData,
+          error: authError,
+        } = await supabase.auth.getUser();
 
-      if (!userData.user) return;
+        if (authError) {
+          toast.error('Erro ao carregar o usuário.');
+          return;
+        }
 
-      const { data: company } =
-        await supabase
+        const user = authData?.user;
+
+        if (!user) {
+          return;
+        }
+
+        const {
+          data: company,
+          error: companyError,
+        } = await supabase
           .from('companies')
           .select(
             'name, owner_name, whatsapp, instagram, city, state, logo_url'
           )
-          .eq('user_id', userData.user.id)
-          .single();
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      if (company) {
-        setEmpresa((f) => ({
-          ...f,
-          name: company.name || '',
-          owner: company.owner_name || '',
-          whatsapp: company.whatsapp || '',
-          instagram: company.instagram || '',
-          city: company.city || '',
-          state: company.state || 'PR',
-          logo_url: company.logo_url || '',
-        }));
-      }
+        if (companyError) {
+          toast.error('Não foi possível carregar os dados da empresa.');
+        } else if (company) {
+          setEmpresa((f) => ({
+            ...f,
+            name: company.name || '',
+            owner: company.owner_name || '',
+            whatsapp: company.whatsapp || '',
+            instagram: company.instagram || '',
+            city: company.city || '',
+            state: company.state || 'PR',
+            logo_url: company.logo_url || '',
+          }));
+        }
 
-      const { data: settings } =
-        await supabase
+        const {
+          data: settings,
+          error: settingsError,
+        } = await supabase
           .from('user_settings')
           .select(
             'work_hours_day, work_days_month, profit_goal, default_margin, default_commission, default_waste, hourly_rate'
           )
-          .eq('user_id', userData.user.id)
-          .single();
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      if (settings) {
-        setFinanceiro({
-          work_hours_day:
-            Number(settings.work_hours_day) || 8,
-          work_days_month:
-            Number(settings.work_days_month) || 22,
-          profit_goal:
-            Number(settings.profit_goal) || 40,
-          default_margin:
-            Number(settings.default_margin) || 40,
-          default_commission:
-            Number(settings.default_commission) || 5,
-          default_waste:
-            Number(settings.default_waste) || 5,
-          hourly_rate:
-            Number(settings.hourly_rate) || 15,
-        });
+        if (settingsError) {
+          toast.error('Não foi possível carregar as configurações financeiras.');
+        } else if (settings) {
+          setFinanceiro({
+            work_hours_day:
+              Number(settings.work_hours_day) || 8,
+            work_days_month:
+              Number(settings.work_days_month) || 22,
+            profit_goal:
+              Number(settings.profit_goal) || 40,
+            default_margin:
+              Number(settings.default_margin) || 40,
+            default_commission:
+              Number(settings.default_commission) || 5,
+            default_waste:
+              Number(settings.default_waste) || 5,
+            hourly_rate:
+              Number(settings.hourly_rate) || 15,
+          });
+        }
+      } catch (error) {
+        toast.error('Erro ao carregar configurações.');
       }
     }
 
@@ -222,13 +274,11 @@ export default function ConfiguracoesPage() {
       icon: Building2,
       label: 'Empresa',
     },
-
     {
       id: 'financeiro',
       icon: Settings2,
       label: 'Financeiro',
     },
-
     {
       id: 'conta',
       icon: Shield,
@@ -237,73 +287,51 @@ export default function ConfiguracoesPage() {
   ];
 
   return (
-
     <div>
-
       <PageHeader
         title="Configurações"
         subtitle="Personalize o sistema de acordo com o seu negócio."
       />
 
-      {/* TABS */}
       <div className="flex gap-1 mb-8 bg-white rounded-2xl p-1.5 border border-gray-100 shadow-sm w-fit">
-
-        {tabs.map(
-          ({
-            id,
-            icon: Icon,
-            label,
-          }) => (
-
-            <button
-              key={id}
-              onClick={() =>
-                setActiveTab(id)
-              }
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                activeTab === id
-                  ? 'text-white'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-              style={
-                activeTab === id
-                  ? {
-                      background:
-                        'linear-gradient(135deg, #FF6BAD, #FF8DC7)',
-                    }
-                  : {}
-              }
-            >
-
-              <Icon size={15} />
-
-              {label}
-
-            </button>
-          )
-        )}
-
+        {tabs.map(({ id, icon: Icon, label }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              activeTab === id
+                ? 'text-white'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            style={
+              activeTab === id
+                ? {
+                    background:
+                      'linear-gradient(135deg, #FF6BAD, #FF8DC7)',
+                  }
+                : {}
+            }
+          >
+            <Icon size={15} />
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* EMPRESA */}
       {activeTab === 'empresa' && (
-
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-2xl">
-
           <h2 className="font-black text-gray-800 mb-5">
             Dados da empresa
           </h2>
 
           <div className="space-y-4">
-
             <Input
               label="Nome da empresa"
               value={empresa.name}
               onChange={(e) =>
                 setEmpresa((f) => ({
                   ...f,
-                  name:
-                    e.target.value,
+                  name: e.target.value,
                 }))
               }
               placeholder="Ex: Ateliê da Ana"
@@ -315,25 +343,20 @@ export default function ConfiguracoesPage() {
               onChange={(e) =>
                 setEmpresa((f) => ({
                   ...f,
-                  owner:
-                    e.target.value,
+                  owner: e.target.value,
                 }))
               }
               placeholder="Seu nome completo"
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
               <Input
                 label="WhatsApp"
-                value={
-                  empresa.whatsapp
-                }
+                value={empresa.whatsapp}
                 onChange={(e) =>
                   setEmpresa((f) => ({
                     ...f,
-                    whatsapp:
-                      e.target.value,
+                    whatsapp: e.target.value,
                   }))
                 }
                 placeholder="41 99999-0000"
@@ -341,31 +364,25 @@ export default function ConfiguracoesPage() {
 
               <Input
                 label="Instagram"
-                value={
-                  empresa.instagram
-                }
+                value={empresa.instagram}
                 onChange={(e) =>
                   setEmpresa((f) => ({
                     ...f,
-                    instagram:
-                      e.target.value,
+                    instagram: e.target.value,
                   }))
                 }
                 placeholder="@seuatelie"
               />
-
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
               <Input
                 label="Cidade"
                 value={empresa.city}
                 onChange={(e) =>
                   setEmpresa((f) => ({
                     ...f,
-                    city:
-                      e.target.value,
+                    city: e.target.value,
                   }))
                 }
                 placeholder="Ex: Curitiba"
@@ -377,31 +394,23 @@ export default function ConfiguracoesPage() {
                 onChange={(e) =>
                   setEmpresa((f) => ({
                     ...f,
-                    state:
-                      e.target.value,
+                    state: e.target.value,
                   }))
                 }
-                options={STATES.map(
-                  (s) => ({
-                    value: s,
-                    label: s,
-                  })
-                )}
+                options={STATES.map((s) => ({
+                  value: s,
+                  label: s,
+                }))}
               />
-
             </div>
-
           </div>
 
-          {/* PERSONALIZAÇÃO */}
           <div className="mt-10 border-t pt-8">
-
             <h2 className="text-2xl font-black text-[#1A1F5E] mb-6">
               Personalização PRO
             </h2>
 
             <div className="mb-6">
-
               <label className="block text-sm font-bold text-[#1A1F5E] mb-2">
                 Logo da empresa
               </label>
@@ -418,27 +427,21 @@ export default function ConfiguracoesPage() {
                   bg-white
                 "
               />
-
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
               <div>
-
                 <label className="block text-sm font-bold text-[#1A1F5E] mb-2">
                   Cor principal
                 </label>
 
                 <input
                   type="color"
-                  value={
-                    empresa.primary_color
-                  }
+                  value={empresa.primary_color}
                   onChange={(e) =>
                     setEmpresa((f) => ({
                       ...f,
-                      primary_color:
-                        e.target.value,
+                      primary_color: e.target.value,
                     }))
                   }
                   className="
@@ -451,25 +454,20 @@ export default function ConfiguracoesPage() {
                     cursor-pointer
                   "
                 />
-
               </div>
 
               <div>
-
                 <label className="block text-sm font-bold text-[#1A1F5E] mb-2">
                   Cor secundária
                 </label>
 
                 <input
                   type="color"
-                  value={
-                    empresa.secondary_color
-                  }
+                  value={empresa.secondary_color}
                   onChange={(e) =>
                     setEmpresa((f) => ({
                       ...f,
-                      secondary_color:
-                        e.target.value,
+                      secondary_color: e.target.value,
                     }))
                   }
                   className="
@@ -482,15 +480,11 @@ export default function ConfiguracoesPage() {
                     cursor-pointer
                   "
                 />
-
               </div>
-
             </div>
-
           </div>
 
           <div className="mt-6">
-
             <Button
               icon={Save}
               onClick={handleSave}
@@ -498,171 +492,128 @@ export default function ConfiguracoesPage() {
             >
               Salvar dados da empresa
             </Button>
-
           </div>
-
         </div>
       )}
 
-      {/* FINANCEIRO */}
-{activeTab === 'financeiro' && (
+      {activeTab === 'financeiro' && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-4xl">
+          <h2 className="font-black text-gray-800 mb-5">
+            Configurações financeiras
+          </h2>
 
-  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-4xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Horas trabalhadas por dia"
+              type="number"
+              value={String(financeiro.work_hours_day)}
+              onChange={(e) =>
+                setFinanceiro((f) => ({
+                  ...f,
+                  work_hours_day: Number(e.target.value),
+                }))
+              }
+            />
 
-    <h2 className="font-black text-gray-800 mb-5">
-      Configurações financeiras
-    </h2>
+            <Input
+              label="Dias trabalhados por mês"
+              type="number"
+              value={String(financeiro.work_days_month)}
+              onChange={(e) =>
+                setFinanceiro((f) => ({
+                  ...f,
+                  work_days_month: Number(e.target.value),
+                }))
+              }
+            />
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Meta de lucro (%)"
+              type="number"
+              value={String(financeiro.profit_goal)}
+              onChange={(e) =>
+                setFinanceiro((f) => ({
+                  ...f,
+                  profit_goal: Number(e.target.value),
+                }))
+              }
+            />
 
-      <Input
-        label="Horas trabalhadas por dia"
-        type="number"
-        value={String(financeiro.work_hours_day)}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            work_hours_day:
-              Number(e.target.value),
-          }))
-        }
-      />
+            <Input
+              label="Margem padrão (%)"
+              type="number"
+              value={String(financeiro.default_margin)}
+              onChange={(e) =>
+                setFinanceiro((f) => ({
+                  ...f,
+                  default_margin: Number(e.target.value),
+                }))
+              }
+            />
 
-      <Input
-        label="Dias trabalhados por mês"
-        type="number"
-        value={String(financeiro.work_days_month)}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            work_days_month:
-              Number(e.target.value),
-          }))
-        }
-      />
+            <Input
+              label="Comissão padrão (%)"
+              type="number"
+              value={String(financeiro.default_commission)}
+              onChange={(e) =>
+                setFinanceiro((f) => ({
+                  ...f,
+                  default_commission: Number(e.target.value),
+                }))
+              }
+            />
 
-      <Input
-        label="Meta de lucro (%)"
-        type="number"
-        value={String(financeiro.profit_goal)}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            profit_goal:
-              Number(e.target.value),
-          }))
-        }
-      />
+            <Input
+              label="Desperdício padrão (%)"
+              type="number"
+              value={String(financeiro.default_waste)}
+              onChange={(e) =>
+                setFinanceiro((f) => ({
+                  ...f,
+                  default_waste: Number(e.target.value),
+                }))
+              }
+            />
+          </div>
 
-      <Input
-        label="Margem padrão (%)"
-        type="number"
-        value={String(financeiro.default_margin)}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            default_margin:
-              Number(e.target.value),
-          }))
-        }
-      />
+          <div className="mt-6">
+            <Button
+              icon={Save}
+              onClick={handleSave}
+              loading={saving}
+            >
+              Salvar configurações
+            </Button>
+          </div>
+        </div>
+      )}
 
-      <Input
-        label="Comissão padrão (%)"
-        type="number"
-        value={String(financeiro.default_commission)}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            default_commission:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-      <Input
-        label="Desperdício padrão (%)"
-        type="number"
-        value={String(financeiro.default_waste)}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            default_waste:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-      <Input
-        label="Valor da hora trabalhada (R$)"
-        type="number"
-        value={String(financeiro.hourly_rate)}
-        onChange={(e) =>
-          setFinanceiro((f) => ({
-            ...f,
-            hourly_rate:
-              Number(e.target.value),
-          }))
-        }
-      />
-
-    </div>
-
-    <div className="mt-6">
-
-      <Button
-        icon={Save}
-        onClick={handleSave}
-        loading={saving}
-      >
-        Salvar configurações
-      </Button>
-
-    </div>
-
-  </div>
-)}
-
-      {/* CONTA */}
       {activeTab === 'conta' && (
-
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-2xl">
-
           <h2 className="font-black text-gray-800 mb-5">
             Conta & Plano
           </h2>
 
           <div className="space-y-4">
-
             <div className="p-5 rounded-2xl bg-pink-50 border border-pink-100">
-
               <p className="text-sm text-gray-500 font-semibold mb-1">
                 Seu plano atual
               </p>
-
               <h3 className="text-2xl font-black text-[#1A1F5E]">
                 {PLAN_LABELS[plan]}
               </h3>
-
             </div>
 
             <Button
-              icon={
-                portalLoading
-                  ? Loader2
-                  : ExternalLink
-              }
+              icon={portalLoading ? Loader2 : ExternalLink}
               onClick={handlePortal}
               loading={portalLoading}
             >
               Gerenciar assinatura
             </Button>
-
           </div>
-
         </div>
       )}
-
     </div>
   );
 }

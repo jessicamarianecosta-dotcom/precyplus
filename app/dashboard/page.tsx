@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   Package,
@@ -46,7 +46,10 @@ interface DashboardStats {
 
 export default function DashboardPage() {
 
-  const supabase = createClient();
+  const supabase = useMemo(
+    () => createClient(),
+    []
+  );
 
   const [loading, setLoading] =
     useState(true);
@@ -70,161 +73,146 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [supabase]);
 
   async function loadDashboard() {
-
     try {
-
       setLoading(true);
 
       const {
         data: authData,
+        error: authError,
       } = await supabase.auth.getUser();
 
-      const user =
-        authData.user;
-
-      if (!user) {
+      if (authError || !authData?.user) {
         setLoading(false);
         return;
       }
 
-      const userId =
-        user.id;
+      const user = authData.user;
+      const userId = user.id;
 
-      const { data: profile } =
-  await supabase
-    .from('profiles')
-    .select('display_name')
-    .eq('id', user.id)
-    .single();
+      const [
+        materialsResult,
+        pricingsResult,
+        clientsResult,
+        budgetsResult,
+        financialResult,
+        profileResult,
+      ] = await Promise.all([
+        supabase
+          .from('materials')
+          .select('id, available_qty, min_stock')
+          .eq('user_id', userId),
+        supabase
+          .from('pricings')
+          .select('id')
+          .eq('user_id', userId),
+        supabase
+          .from('clients')
+          .select('id')
+          .eq('user_id', userId),
+        supabase
+          .from('budgets')
+          .select('id, status')
+          .eq('user_id', userId),
+        supabase
+          .from('financial')
+          .select('id, type, amount')
+          .eq('user_id', userId),
+        supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', userId)
+          .maybeSingle(),
+      ]);
 
-setUserName(
-  profile?.display_name ||
-  user.user_metadata?.full_name ||
-  user.user_metadata?.display_name ||
-  user.email?.split('@')[0] ||
-  'Usuário'
-);
+      if (
+        materialsResult.error ||
+        pricingsResult.error ||
+        clientsResult.error ||
+        budgetsResult.error ||
+        financialResult.error ||
+        profileResult.error
+      ) {
+        throw new Error('Erro ao carregar dados do painel.');
+      }
 
-      const {
-        data: materials,
-      } = await supabase
-        .from('materials')
-        .select('*')
-        .eq('user_id', userId);
+      const materials = materialsResult.data || [];
+      const pricings = pricingsResult.data || [];
+      const clients = clientsResult.data || [];
+      const budgets = budgetsResult.data || [];
+      const financial = financialResult.data || [];
 
       const lowStock =
-        materials?.filter(
-          m =>
-            Number(m.available_qty) <=
-            Number(m.min_stock)
-        ).length || 0;
+        materials.filter(
+          (material) =>
+            Number(material.available_qty) <=
+            Number(material.min_stock)
+        ).length;
 
       const criticalStock =
-        materials?.filter(
-          m =>
-            Number(m.available_qty) <= 0
-        ).length || 0;
+        materials.filter(
+          (material) =>
+            Number(material.available_qty) <= 0
+        ).length;
 
-      const {
-        data: pricings,
-      } = await supabase
-        .from('pricings')
-        .select('*')
-        .eq('user_id', userId);
+      const revenue =
+        financial
+          .filter(
+            (entry) =>
+              entry.type === 'income' ||
+              entry.type === 'entrada'
+          )
+          .reduce(
+            (sum, entry) =>
+              sum + Number(entry.amount || 0),
+            0
+          );
 
-      const {
-        data: clients,
-      } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', userId);
+      const expenses =
+        financial
+          .filter(
+            (entry) =>
+              entry.type === 'expense' ||
+              entry.type === 'saida'
+          )
+          .reduce(
+            (sum, entry) =>
+              sum + Number(entry.amount || 0),
+            0
+          );
 
-      const {
-        data: quotes,
-      } = await supabase
-        .from('budgets')
-        .select('*')
-        .eq('user_id', userId);
+      const approvedQuotes =
+        budgets.filter(
+          (quote) =>
+            quote.status === 'approved' ||
+            quote.status === 'aprovado'
+        ).length;
 
-      const {
-  data: financial,
-} = await supabase
-  .from('financial')
-  .select('*')
-  .eq('user_id', userId);
-
-const revenue =
-  financial
-    ?.filter(
-      f =>
-        f.type === 'income' ||
-        f.type === 'entrada'
-    )
-    .reduce(
-      (acc, item) =>
-        acc + Number(item.amount || 0),
-      0
-    ) || 0;
-
-const expenses =
-  financial
-    ?.filter(
-      f =>
-        f.type === 'expense' ||
-        f.type === 'saida'
-    )
-    .reduce(
-      (acc, item) =>
-        acc + Number(item.amount || 0),
-      0
-    ) || 0;
-
-      setStats({
-        totalMaterials:
-          materials?.length || 0,
-
-        lowStock,
-
-        criticalStock,
-
-        totalProducts:
-          pricings?.length || 0,
-
-        totalClients:
-          clients?.length || 0,
-
-        totalQuotes:
-          quotes?.length || 0,
-
-        approvedQuotes:
-          quotes?.filter(
-            q =>
-             q.status ===
-'aprovado'
-          ).length || 0,
-
-        totalRevenue:
-          revenue,
-
-        totalExpenses:
-          expenses,
-
-        estimatedProfit:
-          revenue - expenses,
-      });
-
-    } catch (error) {
-
-      console.error(
-        'Erro dashboard:',
-        error
+      setUserName(
+        profileResult.data?.display_name ||
+          user.user_metadata?.full_name ||
+          user.user_metadata?.display_name ||
+          user.email?.split('@')[0] ||
+          'Usuário'
       );
 
+      setStats({
+        totalMaterials: materials.length,
+        lowStock,
+        criticalStock,
+        totalProducts: pricings.length,
+        totalClients: clients.length,
+        totalQuotes: budgets.length,
+        approvedQuotes,
+        totalRevenue: revenue,
+        totalExpenses: expenses,
+        estimatedProfit: revenue - expenses,
+      });
+    } catch (error) {
+      console.error('Erro dashboard:', error);
     } finally {
-
       setLoading(false);
     }
   }
@@ -270,51 +258,65 @@ const expenses =
     },
   ];
 
-  const financeData = [
-    {
-      name: 'Faturamento',
-      value: stats.totalRevenue,
-    },
-    {
-      name: 'Despesas',
-      value: stats.totalExpenses,
-    },
-    {
-      name: 'Lucro',
-      value: stats.estimatedProfit,
-    },
-  ];
+  const financeData =
+    stats.totalRevenue === 0 &&
+    stats.totalExpenses === 0 &&
+    stats.estimatedProfit === 0
+      ? []
+      : [
+          {
+            name: 'Faturamento',
+            value: stats.totalRevenue,
+          },
+          {
+            name: 'Despesas',
+            value: stats.totalExpenses,
+          },
+          {
+            name: 'Lucro',
+            value: stats.estimatedProfit,
+          },
+        ];
 
-  const stockData = [
-    {
-      name: 'Baixo',
-      value: stats.lowStock,
-    },
-    {
-      name: 'Crítico',
-      value: stats.criticalStock,
-    },
-    {
-      name: 'Normal',
-      value:
-        stats.totalMaterials -
-        stats.lowStock -
-        stats.criticalStock,
-    },
-  ];
+  const stockData =
+    stats.totalMaterials === 0
+      ? []
+      : [
+          {
+            name: 'Baixo',
+            value: stats.lowStock,
+          },
+          {
+            name: 'Crítico',
+            value: stats.criticalStock,
+          },
+          {
+            name: 'Normal',
+            value:
+              Math.max(
+                0,
+                stats.totalMaterials -
+                  stats.lowStock -
+                  stats.criticalStock
+              ),
+          },
+        ];
 
-  const quotesData = [
-    {
-      name: 'Aprovados',
-      value: stats.approvedQuotes,
-    },
-    {
-      name: 'Pendentes',
-      value:
-        stats.totalQuotes -
-        stats.approvedQuotes,
-    },
-  ];
+  const quotesData =
+    stats.totalQuotes === 0
+      ? []
+      : [
+          {
+            name: 'Aprovados',
+            value: stats.approvedQuotes,
+          },
+          {
+            name: 'Pendentes',
+            value:
+              stats.totalQuotes -
+              stats.approvedQuotes,
+          },
+        ];
 
   return (
     <div className="space-y-6">
